@@ -231,7 +231,7 @@
         #mini-placeholder {
             position: fixed;
             left: 50%;
-            top: 50%;
+            top: calc(4.55vh + 32px);
             z-index: 50;
             transform: translate(-50%, -50%);
             opacity: 0;
@@ -699,6 +699,322 @@
 
         .board-system-usage-row.memory {
             --usage-color: #4ade80;
+        }
+
+        /* ---- Now playing card (Windows media session) ---- */
+        .board-card.board-card-now-playing {
+            display: block;
+            padding: 0;
+        }
+
+        .board-now-playing {
+            position: relative;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            flex-direction: column;
+            gap: 0.45rem;
+            padding: clamp(0.6rem, 1.1vw, 1rem);
+            border-radius: inherit;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .board-np-art {
+            display: flex;
+            flex: 1 1 0;
+            min-height: 0;
+            justify-content: center;
+        }
+
+        .board-np-cover {
+            display: grid;
+            height: 100%;
+            max-width: 100%;
+            aspect-ratio: 1 / 1;
+            place-items: center;
+            overflow: hidden;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.07);
+            color: var(--text-muted);
+            font-size: clamp(1.6rem, 3vw, 2.6rem);
+        }
+
+        .board-np-cover img {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .board-now-playing.has-art .board-np-cover img {
+            display: block;
+        }
+
+        .board-now-playing.has-art .board-np-cover-fallback {
+            display: none;
+        }
+
+        .board-np-scrim {
+            display: none;
+        }
+
+        .board-np-info {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            gap: 0.1rem;
+        }
+
+        .board-np-source {
+            margin: 0;
+            overflow: hidden;
+            color: var(--accent);
+            font-size: clamp(0.55rem, 0.7vw, 0.68rem);
+            letter-spacing: 0.08em;
+            text-overflow: ellipsis;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .board-np-title {
+            margin: 0;
+            overflow: hidden;
+            font-size: clamp(0.8rem, 1.1vw, 1rem);
+            font-weight: 600;
+            line-height: 1.25;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .board-np-artist {
+            margin: 0;
+            overflow: hidden;
+            color: var(--text-muted);
+            font-size: clamp(0.65rem, 0.85vw, 0.8rem);
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .board-now-playing[data-state="idle"] .board-np-title,
+        .board-now-playing[data-state="error"] .board-np-title {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .board-np-track {
+            position: relative;
+            height: 16px;
+            flex: none;
+            cursor: default;
+            outline: none;
+            touch-action: none;
+        }
+
+        .board-np-track.is-seekable {
+            cursor: pointer;
+        }
+
+        .board-np-rail {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            left: 0;
+            height: 4px;
+            overflow: hidden;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.18);
+            transform: translateY(-50%);
+        }
+
+        .board-np-fill {
+            width: 0;
+            height: 100%;
+            background: var(--accent);
+        }
+
+        .board-np-thumb {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            display: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.35);
+            transform: translate(-50%, -50%);
+        }
+
+        .board-np-track.is-seekable:hover .board-np-thumb,
+        .board-np-track.is-seekable:focus-visible .board-np-thumb,
+        .board-np-track.is-scrubbing .board-np-thumb {
+            display: block;
+        }
+
+        .board-np-times {
+            display: none;
+            justify-content: space-between;
+            margin-top: -0.2rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.62rem;
+        }
+
+        .board-now-playing.no-timeline .board-np-track,
+        .board-now-playing.no-timeline .board-np-times,
+        .board-now-playing[data-state="idle"] .board-np-track,
+        .board-now-playing[data-state="idle"] .board-np-times,
+        .board-now-playing[data-state="error"] .board-np-track,
+        .board-now-playing[data-state="error"] .board-np-times {
+            visibility: hidden;
+        }
+
+        .board-np-controls {
+            display: flex;
+            flex: none;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(0.2rem, 0.6vw, 0.6rem);
+        }
+
+        .board-np-btn {
+            display: grid;
+            width: 32px;
+            height: 32px;
+            place-items: center;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            transition: background 0.16s ease, opacity 0.16s ease;
+        }
+
+        .board-np-btn svg {
+            width: 55%;
+            height: 55%;
+            fill: currentColor;
+        }
+
+        .board-np-btn:hover:not(:disabled),
+        .board-np-btn:focus-visible {
+            background: rgba(255,255,255,0.14);
+            outline: none;
+        }
+
+        .board-np-btn:disabled {
+            cursor: default;
+            opacity: 0.3;
+        }
+
+        .board-np-btn.play {
+            width: 42px;
+            height: 38px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.12);
+        }
+
+        /* 1x1: full-bleed cover with the text and controls laid over it */
+        .board-card.board-card-now-playing.size-1x1 .board-now-playing {
+            justify-content: flex-end;
+            gap: 0.2rem;
+            padding: 0.55rem;
+        }
+
+        .size-1x1 .board-np-art {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        .size-1x1 .board-np-cover {
+            width: 100%;
+            max-width: none;
+            aspect-ratio: auto;
+            border-radius: 0;
+            background: rgba(255,255,255,0.04);
+        }
+
+        .size-1x1 .board-now-playing.has-art .board-np-scrim {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            display: block;
+            background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0) 80%);
+            pointer-events: none;
+        }
+
+        .size-1x1 .board-np-info,
+        .size-1x1 .board-np-track,
+        .size-1x1 .board-np-controls {
+            position: relative;
+            z-index: 1;
+        }
+
+        .size-1x1 .board-now-playing.has-art {
+            color: #fff;
+        }
+
+        .size-1x1 .board-now-playing.has-art .board-np-artist {
+            color: rgba(255,255,255,0.72);
+        }
+
+        .size-1x1 .board-np-source,
+        .size-1x1 .board-np-times {
+            display: none;
+        }
+
+        .size-1x1 .board-np-title {
+            font-size: 0.78rem;
+        }
+
+        .size-1x1 .board-np-artist {
+            font-size: 0.62rem;
+        }
+
+        .size-1x1 .board-np-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .size-1x1 .board-np-btn.play {
+            width: 36px;
+            height: 32px;
+        }
+
+        /* 2x1: cover on the left; details, seek bar and controls on the right */
+        .board-card.board-card-now-playing.size-2x1 .board-now-playing {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-rows: minmax(0, 1fr) auto auto auto;
+            column-gap: clamp(0.7rem, 1.2vw, 1.1rem);
+            row-gap: 0.3rem;
+        }
+
+        .size-2x1 .board-np-art {
+            grid-column: 1;
+            grid-row: 1 / -1;
+            height: 100%;
+            aspect-ratio: 1 / 1;
+        }
+
+        .size-2x1 .board-np-info,
+        .size-2x1 .board-np-track,
+        .size-2x1 .board-np-times,
+        .size-2x1 .board-np-controls {
+            grid-column: 2;
+        }
+
+        .size-2x1 .board-np-info {
+            align-self: end;
+            padding-right: 1.6rem;
+        }
+
+        .size-2x1 .board-np-times {
+            display: flex;
         }
 
         .board-card.board-card-media {
@@ -2607,6 +2923,16 @@
                 ]
             },
             {
+                id: 'now-playing',
+                label: 'Now playing',
+                width: 1,
+                height: 1,
+                allowedSizes: [
+                    { width: 1, height: 1 },
+                    { width: 2, height: 1 }
+                ]
+            },
+            {
                 id: 'manga-shelf',
                 label: 'Manga shelf',
                 width: 2,
@@ -2816,6 +3142,302 @@
                 updateBoardSystemUsage(null, error.message);
             } finally {
                 isBoardSystemUsageLoading = false;
+            }
+        }
+
+        // ---- Now playing card: mirrors the Windows media session via the proxy ----
+        // GET  /media-session   -> { active, app, title, artist, status, position, duration, hasThumbnail, thumbnailKey, canPlayPause, canNext, canPrevious, canSeek }
+        // GET  /media-thumbnail -> cover art image
+        // POST /media-control   -> { action: 'play_pause' | 'next' | 'previous' | 'seek', position }
+        const NOW_PLAYING_POLL_MS = 2000;
+        const NOW_PLAYING_ICONS = {
+            previous: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>',
+            next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
+            play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+            pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+        };
+        let nowPlayingData = null;
+        let nowPlayingError = '';
+        let nowPlayingFetchedAt = 0;
+        let nowPlayingScrub = null;
+        let isNowPlayingLoading = false;
+
+        function getNowPlayingEndpoint() {
+            return window.location.protocol === 'file:' ? 'http://127.0.0.1:8787' : window.location.origin;
+        }
+
+        function formatNowPlayingTime(seconds) {
+            if (!Number.isFinite(seconds)) return '--:--';
+            const total = Math.max(0, Math.floor(seconds));
+            const hours = Math.floor(total / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const secs = String(total % 60).padStart(2, '0');
+            return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${secs}` : `${minutes}:${secs}`;
+        }
+
+        // The proxy reports a position at poll time; carry it forward locally while playing.
+        function currentNowPlayingPosition() {
+            const data = nowPlayingData;
+            if (!data?.active || !Number.isFinite(data.position)) return null;
+            let position = data.position;
+            if (data.status === 'playing') position += (performance.now() - nowPlayingFetchedAt) / 1000;
+            return Number.isFinite(data.duration) ? Math.min(position, data.duration) : position;
+        }
+
+        async function sendNowPlayingControl(action, position = null) {
+            const data = nowPlayingData;
+            if (data?.active && action === 'play_pause') {
+                // Optimistic flip; the next poll confirms it.
+                updateNowPlaying({
+                    ...data,
+                    position: currentNowPlayingPosition(),
+                    status: data.status === 'playing' ? 'paused' : 'playing'
+                });
+            }
+            try {
+                const response = await fetch(new URL('/media-control', getNowPlayingEndpoint()), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, position })
+                });
+                if (!response.ok) throw new Error(`Media control API returned HTTP ${response.status}`);
+            } catch (error) {
+                console.error(`Could not send "${action}" to the media session:`, error);
+            }
+            setTimeout(fetchNowPlaying, 400);
+        }
+
+        function seekNowPlaying(ratio) {
+            const duration = nowPlayingData?.duration;
+            if (!nowPlayingData?.canSeek || !Number.isFinite(duration)) return;
+            const position = Math.min(Math.max(ratio, 0), 1) * duration;
+            nowPlayingData = { ...nowPlayingData, position };
+            nowPlayingFetchedAt = performance.now();
+            tickNowPlaying();
+            sendNowPlayingControl('seek', position);
+        }
+
+        function createNowPlayingButton(className, label, onClick) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `board-np-btn ${className}`;
+            button.setAttribute('aria-label', label);
+            button.title = label;
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                onClick();
+            });
+            return button;
+        }
+
+        function renderNowPlaying(card, element) {
+            const panel = document.createElement('div');
+            panel.className = 'board-now-playing';
+            panel.dataset.state = 'idle';
+            panel.setAttribute('aria-label', 'Now playing');
+
+            const art = document.createElement('div');
+            art.className = 'board-np-art';
+            const cover = document.createElement('div');
+            cover.className = 'board-np-cover';
+            const image = document.createElement('img');
+            image.alt = '';
+            image.draggable = false;
+            image.addEventListener('load', () => panel.classList.add('has-art'));
+            image.addEventListener('error', () => {
+                panel.classList.remove('has-art');
+                image.dataset.key = '';
+            });
+            const fallback = document.createElement('span');
+            fallback.className = 'board-np-cover-fallback';
+            fallback.setAttribute('aria-hidden', 'true');
+            fallback.textContent = '♪';
+            cover.append(image, fallback);
+            art.appendChild(cover);
+
+            const scrim = document.createElement('div');
+            scrim.className = 'board-np-scrim';
+
+            const info = document.createElement('div');
+            info.className = 'board-np-info';
+            const source = document.createElement('p');
+            source.className = 'board-np-source';
+            const title = document.createElement('p');
+            title.className = 'board-np-title';
+            title.textContent = '';
+            const artist = document.createElement('p');
+            artist.className = 'board-np-artist';
+            info.append(source, title, artist);
+
+            const track = document.createElement('div');
+            track.className = 'board-np-track';
+            track.tabIndex = 0;
+            track.setAttribute('role', 'slider');
+            track.setAttribute('aria-label', 'Seek');
+            track.setAttribute('aria-valuemin', '0');
+            const rail = document.createElement('div');
+            rail.className = 'board-np-rail';
+            const fill = document.createElement('div');
+            fill.className = 'board-np-fill';
+            rail.appendChild(fill);
+            const thumb = document.createElement('div');
+            thumb.className = 'board-np-thumb';
+            track.append(rail, thumb);
+
+            const ratioFromPointer = event => {
+                const rect = track.getBoundingClientRect();
+                return rect.width ? Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1) : 0;
+            };
+            // Stops the draggable card from picking the gesture up as a card drag.
+            track.addEventListener('mousedown', event => event.preventDefault());
+            track.addEventListener('pointerdown', event => {
+                if (!nowPlayingData?.canSeek) return;
+                track.setPointerCapture(event.pointerId);
+                nowPlayingScrub = { cardId: card.id, ratio: ratioFromPointer(event) };
+                track.classList.add('is-scrubbing');
+                tickNowPlaying();
+            });
+            track.addEventListener('pointermove', event => {
+                if (nowPlayingScrub?.cardId !== card.id) return;
+                nowPlayingScrub.ratio = ratioFromPointer(event);
+                tickNowPlaying();
+            });
+            track.addEventListener('pointerup', event => {
+                if (nowPlayingScrub?.cardId !== card.id) return;
+                const ratio = ratioFromPointer(event);
+                nowPlayingScrub = null;
+                track.classList.remove('is-scrubbing');
+                seekNowPlaying(ratio);
+            });
+            track.addEventListener('pointercancel', () => {
+                if (nowPlayingScrub?.cardId !== card.id) return;
+                nowPlayingScrub = null;
+                track.classList.remove('is-scrubbing');
+                tickNowPlaying();
+            });
+            track.addEventListener('keydown', event => {
+                const duration = nowPlayingData?.duration;
+                const position = currentNowPlayingPosition();
+                if (!nowPlayingData?.canSeek || !Number.isFinite(duration) || position === null) return;
+                const step = event.key === 'ArrowRight' ? 5 : event.key === 'ArrowLeft' ? -5 : 0;
+                if (!step) return;
+                event.preventDefault();
+                seekNowPlaying((position + step) / duration);
+            });
+
+            const times = document.createElement('div');
+            times.className = 'board-np-times';
+            const elapsed = document.createElement('span');
+            elapsed.className = 'board-np-elapsed';
+            elapsed.textContent = '0:00';
+            const total = document.createElement('span');
+            total.className = 'board-np-total';
+            total.textContent = '0:00';
+            times.append(elapsed, total);
+
+            const controls = document.createElement('div');
+            controls.className = 'board-np-controls';
+            const previousButton = createNowPlayingButton('previous', 'Previous track', () => sendNowPlayingControl('previous'));
+            previousButton.innerHTML = NOW_PLAYING_ICONS.previous;
+            const playButton = createNowPlayingButton('play', 'Play', () => sendNowPlayingControl('play_pause'));
+            playButton.innerHTML = NOW_PLAYING_ICONS.play;
+            const nextButton = createNowPlayingButton('next', 'Next track', () => sendNowPlayingControl('next'));
+            nextButton.innerHTML = NOW_PLAYING_ICONS.next;
+            [previousButton, playButton, nextButton].forEach(button => { button.disabled = true; });
+            controls.append(previousButton, playButton, nextButton);
+
+            panel.append(art, scrim, info, track, times, controls);
+            element.appendChild(panel);
+        }
+
+        function updateNowPlaying(data, error = '') {
+            nowPlayingData = data;
+            nowPlayingError = error;
+            nowPlayingFetchedAt = performance.now();
+            const active = Boolean(data?.active);
+            const playing = active && data.status === 'playing';
+
+            boardCards.filter(card => card.typeId === 'now-playing').forEach(card => {
+                const element = boardGrid.querySelector(`[data-card-id="${card.id}"]`);
+                const panel = element?.querySelector('.board-now-playing');
+                if (!panel) return;
+
+                panel.dataset.state = error ? 'error' : active ? (playing ? 'playing' : 'paused') : 'idle';
+                panel.querySelector('.board-np-source').textContent = active ? data.app : '';
+                panel.querySelector('.board-np-title').textContent = active
+                    ? (data.title || 'Unknown title')
+                    : error ? 'Media unavailable' : '';
+                panel.querySelector('.board-np-artist').textContent = active ? data.artist : '';
+                element.title = error || '';
+
+                const image = panel.querySelector('.board-np-cover img');
+                const key = active && data.hasThumbnail ? data.thumbnailKey : '';
+                if ((image.dataset.key || '') !== key) {
+                    image.dataset.key = key;
+                    if (key) {
+                        const url = new URL('/media-thumbnail', getNowPlayingEndpoint());
+                        url.searchParams.set('key', key);
+                        image.src = url.href;
+                    } else {
+                        image.removeAttribute('src');
+                        panel.classList.remove('has-art');
+                    }
+                }
+
+                const [previousButton, playButton, nextButton] = panel.querySelectorAll('.board-np-btn');
+                previousButton.disabled = !(active && data.canPrevious);
+                nextButton.disabled = !(active && data.canNext);
+                playButton.disabled = !(active && data.canPlayPause);
+                playButton.innerHTML = playing ? NOW_PLAYING_ICONS.pause : NOW_PLAYING_ICONS.play;
+                playButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+                playButton.title = playing ? 'Pause' : 'Play';
+            });
+            tickNowPlaying();
+        }
+
+        // Cheap, local-only refresh of the seek bar between polls.
+        function tickNowPlaying() {
+            const data = nowPlayingData;
+            const duration = data?.active && Number.isFinite(data.duration) ? data.duration : null;
+            boardCards.filter(card => card.typeId === 'now-playing').forEach(card => {
+                const panel = boardGrid.querySelector(`[data-card-id="${card.id}"] .board-now-playing`);
+                if (!panel) return;
+                const scrubbing = nowPlayingScrub?.cardId === card.id;
+                let position = currentNowPlayingPosition();
+                if (scrubbing && duration) position = nowPlayingScrub.ratio * duration;
+                const ratio = duration && position !== null ? Math.min(Math.max(position / duration, 0), 1) : 0;
+                const percent = `${(ratio * 100).toFixed(2)}%`;
+
+                panel.classList.toggle('no-timeline', !duration);
+                panel.querySelector('.board-np-fill').style.width = percent;
+                panel.querySelector('.board-np-thumb').style.left = percent;
+                panel.querySelector('.board-np-elapsed').textContent = formatNowPlayingTime(position ?? 0);
+                panel.querySelector('.board-np-total').textContent = formatNowPlayingTime(duration);
+
+                const track = panel.querySelector('.board-np-track');
+                track.classList.toggle('is-seekable', Boolean(data?.canSeek));
+                track.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
+                track.setAttribute('aria-valuenow', String(Math.round(position || 0)));
+                track.setAttribute('aria-valuetext', `${formatNowPlayingTime(position ?? 0)} of ${formatNowPlayingTime(duration)}`);
+            });
+        }
+
+        async function fetchNowPlaying() {
+            if (isNowPlayingLoading || !boardCards.some(card => card.typeId === 'now-playing')) return;
+            isNowPlayingLoading = true;
+            try {
+                const response = await fetch(new URL('/media-session', getNowPlayingEndpoint()));
+                if (!response.ok) {
+                    let detail = '';
+                    try { detail = (await response.json()).detail || ''; } catch (parseError) { /* body was not JSON */ }
+                    throw new Error(detail || `Media session API returned HTTP ${response.status}`);
+                }
+                updateNowPlaying(await response.json());
+            } catch (error) {
+                if (error.message !== nowPlayingError) console.error('Could not load the media session:', error);
+                updateNowPlaying(null, error.message);
+            } finally {
+                isNowPlayingLoading = false;
             }
         }
 
@@ -3668,7 +4290,9 @@
                 // The old 2x1 world clock became the 1x1 four-timezone clock; keep its place and timezones.
                 const card = savedCard.typeId === 'clock-2x1'
                     ? { ...savedCard, typeId: 'clock-grid', width: 1, height: 1 }
-                    : savedCard;
+                    : savedCard.typeId === 'now-playing' && savedCard.width === 1 && savedCard.height === 2
+                        ? { ...savedCard, width: 2, height: 1 }
+                        : savedCard;
                 const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
                 const knownType = Boolean(type);
                 const validSize = (type?.allowedSizes || BOARD_SIZES).some(size =>
@@ -3769,6 +4393,7 @@
             renderBoard();
             if (card.typeId === 'rss' && card.rssUrl) loadRSSCard(card);
             if (card.typeId === 'system-usage') fetchBoardSystemUsage();
+            if (card.typeId === 'now-playing') fetchNowPlaying();
         }
 
         function showBoardDragPreview(col, row, width, height, canDrop) {
@@ -4348,7 +4973,8 @@
                 if (!type.timezoneCount && card.typeId !== 'rss' &&
                     card.typeId !== 'calendar' && card.typeId !== 'media' &&
                     card.typeId !== 'url' && card.typeId !== 'url-grid' &&
-                    card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage') {
+                    card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage' &&
+                    card.typeId !== 'now-playing') {
                     const heading = document.createElement('div');
                     heading.className = 'board-card-heading';
                     const title = document.createElement('h3');
@@ -4375,6 +5001,8 @@
                     renderBoardUrlGrid(card, element);
                 } else if (card.typeId === 'system-usage') {
                     renderBoardSystemUsage(element);
+                } else if (card.typeId === 'now-playing') {
+                    renderNowPlaying(card, element);
                 } else if (card.typeId === 'weather') {
                     const data = boardWeatherData;
                     const label = document.createElement('p');
@@ -4440,6 +5068,9 @@
             if (boardCards.some(card => card.typeId === 'system-usage')) {
                 updateBoardSystemUsage(boardSystemUsageData, boardSystemUsageError);
             }
+            if (boardCards.some(card => card.typeId === 'now-playing')) {
+                updateNowPlaying(nowPlayingData, nowPlayingError);
+            }
             fitBoardMenus();
         }
 
@@ -4494,6 +5125,9 @@
         setInterval(updateBoardClocks, 1000);
         fetchBoardSystemUsage();
         setInterval(fetchBoardSystemUsage, 5000);
+        fetchNowPlaying();
+        setInterval(fetchNowPlaying, NOW_PLAYING_POLL_MS);
+        setInterval(tickNowPlaying, 500);
 
         const DEFAULT_SETTINGS = {
             timezone: 'Australia/Melbourne',

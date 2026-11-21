@@ -53,7 +53,7 @@ MEDIA_EXTENSIONS = {
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -436,6 +436,84 @@ def speech_events(request: Request):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _require_local_page(request: Request, what: str):
+    """Loopback clients only, and only pages served from this machine (or file://)."""
+    address = _client_ip(request)
+    if address is None or not address.is_loopback:
+        raise HTTPException(status_code=403, detail=f"{what} is only available from this machine")
+
+    origin = request.headers.get("origin")
+    if origin and origin != "null":
+        origin_host = urlparse(origin).hostname
+        try:
+            is_local_origin = origin_host == "localhost" or (
+                origin_host is not None and ipaddress.ip_address(origin_host).is_loopback
+            )
+        except ValueError:
+            is_local_origin = False
+        if not is_local_origin:
+            raise HTTPException(status_code=403, detail=f"{what} is only available to local pages")
+
+
+@app.get("/media-session", include_in_schema=False)
+async def media_session_state(request: Request):
+    """What Windows is playing right now (Edge, Spotify, ...). { active, title, artist, status, ... }"""
+    _require_local_page(request, "Media session")
+    import media_session
+
+    try:
+        return await media_session.read_media_session()
+    except media_session.MediaUnavailable as error:
+        raise HTTPException(status_code=501, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Could not read the media session: {error}") from error
+
+
+@app.get("/media-thumbnail", include_in_schema=False)
+async def media_session_thumbnail(request: Request, key: str = Query("", max_length=512)):
+    """Cover art of the current session. `key` only busts the browser cache when the track changes."""
+    _require_local_page(request, "Media thumbnail")
+    import media_session
+
+    try:
+        thumbnail = await media_session.read_media_thumbnail()
+    except media_session.MediaUnavailable as error:
+        raise HTTPException(status_code=501, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Could not read the cover art: {error}") from error
+    if thumbnail is None:
+        raise HTTPException(status_code=404, detail="No cover art for this track")
+
+    data, media_type = thumbnail
+    return Response(content=data, media_type=media_type, headers={"Cache-Control": "private, max-age=300"})
+
+
+class MediaControlRequest(BaseModel):
+    action: str
+    position: float | None = None
+
+
+@app.post("/media-control", include_in_schema=False)
+async def media_session_control(body: MediaControlRequest, request: Request):
+    """Transport controls: play_pause, next, previous, seek (position in seconds)."""
+    _require_local_page(request, "Media control")
+    if body.action not in {"play_pause", "next", "previous", "seek"}:
+        raise HTTPException(status_code=400, detail="Unknown media action")
+    if body.action == "seek" and (body.position is None or body.position < 0):
+        raise HTTPException(status_code=400, detail="seek needs a non-negative position in seconds")
+    import media_session
+
+    try:
+        accepted = await media_session.control_media_session(body.action, body.position)
+    except media_session.MediaUnavailable as error:
+        raise HTTPException(status_code=501, detail=str(error)) from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Could not control the media session: {error}") from error
+    return {"status": "ok" if accepted else "ignored", "action": body.action}
 
 
 @app.get("/health")
