@@ -13,6 +13,7 @@ Book Card
 Calendar Card
 Time Announcement wvia VoiceVox Engine
 Local Network file transfer
+Media Player Card
 
 
 Note to start the server

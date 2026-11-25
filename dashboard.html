@@ -27,6 +27,32 @@
             --text-muted: #666;
         }
 
+        /* 1 "visible" vh: dvh follows the phone's address bar, vh is the fallback. */
+        :root { --vh: 1vh; }
+
+        /* Now playing artwork: ONE set of controls for both the 1x1 and 2x1 cards.
+           --np-blur        blur of the artwork / thumbnail (px)
+           --np-glass-blur  blur of the frosted-glass layer over it (px)
+           --np-saturate    colour boost behind the glass (1 = none)
+           The 2x1 backdrop uses 4x --np-blur. --np-unit is 1, or 0.5 inside the zoomed 1x1 panel so it looks the same. */
+        :root {
+            --np-blur: 2.5px;
+            --np-glass-blur: 3.5px;
+            --np-saturate: 1.15;
+            --np-unit: 1;
+        }
+
+        .board-card.panel-card.size-1x1 {
+            --np-unit: 0.5;
+        }
+
+        .board-card.panel-card.panel-fluid {
+            --np-unit: 1;
+        }
+        @supports (height: 1dvh) {
+            :root { --vh: 1dvh; }
+        }
+
         html, body {
             margin: 0;
             padding: 0;
@@ -357,6 +383,43 @@
             transition: var(--transition);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-item.is-reorderable {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* A larger invisible target so the dot is easy to grab with a finger. */
+        .nav-item.is-reorderable::after {
+            content: '';
+            position: absolute;
+            inset: -10px -14px;
+        }
+
+        .nav-item.is-dragging {
+            z-index: 3;
+            background: var(--accent);
+            cursor: grabbing;
+            transform: translateY(var(--drag-y, 0px)) scale(1.45);
+            transition: none;
+        }
+
+        #nav-rail.is-reordering .nav-item.is-reorderable .nav-label {
+            opacity: 1;
+            right: 25px;
+        }
+
+        .nav-drop-line {
+            position: absolute;
+            left: -10px;
+            right: -10px;
+            height: 2px;
+            border-radius: 1px;
+            background: var(--accent);
+            pointer-events: none;
         }
 
         .nav-item:hover .nav-label {
@@ -701,6 +764,42 @@
             --usage-color: #4ade80;
         }
 
+        /* 1x1: three rows (name + percentage over a bar), all sized from the card's own width so it scales with the board. */
+        .board-card-system-usage.size-1x1 {
+            container-type: size;
+            padding: 7%;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage {
+            gap: 0;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-row {
+            gap: 3cqw;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-heading {
+            align-items: center;
+            line-height: 1.1;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-label {
+            font-size: 8.5cqw;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-value {
+            font-size: 12cqw;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-bars {
+            gap: 1.2cqw;
+        }
+
+        .board-card-system-usage.size-1x1 .board-system-usage-bar {
+            height: 6.5cqw;
+            border-radius: 1cqw;
+        }
+
         /* ---- Now playing card (Windows media session) ---- */
         .board-card.board-card-now-playing {
             display: block;
@@ -930,6 +1029,13 @@
             z-index: 0;
         }
 
+        /* The thumbnail is small and is stretched over the whole card: blur it heavily and put frosted glass over it. */
+        .size-1x1 .board-np-cover img {
+            image-rendering: auto;
+            filter: blur(calc(var(--np-blur) * var(--np-unit))) saturate(var(--np-saturate));
+            transform: scale(1.1);
+        }
+
         .size-1x1 .board-np-cover {
             width: 100%;
             max-width: none;
@@ -943,7 +1049,11 @@
             inset: 0;
             z-index: 0;
             display: block;
-            background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0) 80%);
+            background:
+                linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.5) 45%, rgba(255,255,255,0.08) 100%);
+            -webkit-backdrop-filter: blur(calc(var(--np-glass-blur) * var(--np-unit))) saturate(var(--np-saturate));
+            backdrop-filter: blur(calc(var(--np-glass-blur) * var(--np-unit))) saturate(var(--np-saturate));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 1px rgba(255,255,255,0.08);
             pointer-events: none;
         }
 
@@ -992,6 +1102,61 @@
             grid-template-rows: minmax(0, 1fr) auto auto auto;
             column-gap: clamp(0.7rem, 1.2vw, 1.1rem);
             row-gap: 0.3rem;
+        }
+
+        /* The artwork, enlarged and heavily blurred, becomes the card's backdrop; a glass layer sits over it. */
+        .size-2x1 .board-now-playing.has-art::before {
+            content: '';
+            position: absolute;
+            inset: -25%;
+            z-index: 0;
+            background: var(--np-art) center / cover no-repeat;
+            filter: blur(calc(var(--np-blur) * 4)) saturate(var(--np-saturate));
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .size-2x1 .board-now-playing.has-art::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 55%, rgba(0,0,0,0.25) 100%);
+            -webkit-backdrop-filter: blur(var(--np-glass-blur)) saturate(var(--np-saturate));
+            backdrop-filter: blur(var(--np-glass-blur)) saturate(var(--np-saturate));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 0 1px rgba(255,255,255,0.08);
+            pointer-events: none;
+        }
+
+        .size-2x1 .board-np-art,
+        .size-2x1 .board-np-info,
+        .size-2x1 .board-np-track,
+        .size-2x1 .board-np-times,
+        .size-2x1 .board-np-controls {
+            position: relative;
+            z-index: 1;
+        }
+
+        .size-2x1 .board-np-cover img {
+            image-rendering: auto;
+            filter: blur(calc(var(--np-blur) * 0.75)) saturate(var(--np-saturate));
+            transform: scale(1.1);
+        }
+
+        /* Glass sheen and rim over the thumbnail. */
+        .size-2x1 .board-now-playing.has-art .board-np-cover {
+            position: relative;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+        }
+
+        .size-2x1 .board-now-playing.has-art .board-np-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.04) 45%, rgba(255,255,255,0) 100%);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
+            pointer-events: none;
         }
 
         .size-2x1 .board-np-art {
@@ -2552,6 +2717,434 @@
             display: none;
         }
 
+        /* Layout switch (Settings > General) */
+        .layout-switch {
+            -webkit-appearance: none;
+            appearance: none;
+            position: relative;
+            flex: none;
+            width: 40px;
+            height: 22px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.14);
+            cursor: pointer;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .layout-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--text);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .layout-switch:checked {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .layout-switch:checked::after {
+            background: #050505;
+            transform: translateX(18px);
+        }
+
+        .layout-switch:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* Panel pages layout: pages 2+ hold one square panel each, below the clock bar. */
+        .page[hidden] {
+            display: none !important;
+        }
+
+        /* Pages 2+ keep the clock bar (clock and weather); only the "Q" and the voice wave are hidden. */
+        body.no-top-bar #mini-placeholder,
+        body.no-top-bar #speech-indicator {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+
+        .panel-page {
+            box-sizing: border-box;
+        }
+
+        /* Square panel sizes. 2x2 is the full-size panel; 1x1 is half of its side. */
+        .board-card.panel-card {
+            flex: none;
+            box-sizing: border-box;
+        }
+
+        .board-card.panel-card.size-2x2,
+        .panel-add-cell {
+            width: min(calc(var(--vh) * 79.2), 90.2vw, calc(var(--vh) * 90.9 - 116px));
+            height: min(calc(var(--vh) * 79.2), 90.2vw, calc(var(--vh) * 90.9 - 116px));
+        }
+
+        /* Most 1x1 panels keep their compact layout and are scaled up (zoom: 2) to fill the same square as 2x2.
+           Weather, calendar, clocks, system usage and RSS are laid out below for reading from a distance, so they skip the zoom. */
+        .board-card.panel-card.size-1x1:not(.panel-fluid) {
+            width: min(calc(var(--vh) * 39.6), 45.1vw, calc(var(--vh) * 45.45 - 58px));
+            height: min(calc(var(--vh) * 39.6), 45.1vw, calc(var(--vh) * 45.45 - 58px));
+            zoom: 2;
+        }
+
+        /* Keep the ··· button and its menu at normal size inside the zoomed 1x1 panel. */
+        .board-card.panel-card.size-1x1:not(.panel-fluid) .board-card-menu-button,
+        .board-card.panel-card.size-1x1:not(.panel-fluid) .board-card-menu {
+            zoom: 0.5;
+        }
+
+        /* ---- Weather and calendar panels: sized from the panel width (cqw) for a 9.7" 4:3 screen seen from 2.5 m.
+           The panel is the container, so 1cqw is 1% of its side. Its own padding/gaps use --panel-side instead. ---- */
+        .board-card.panel-card.panel-fluid {
+            --panel-side: min(calc(var(--vh) * 79.2), 90.2vw, calc(var(--vh) * 90.9 - 116px));
+            width: var(--panel-side);
+            height: var(--panel-side);
+            container-type: size;
+        }
+
+        .board-card.panel-card.board-card-weather,
+        .board-card.panel-card.board-card-calendar,
+        .board-card.panel-card.board-card-system-usage,
+        .board-card.panel-card.board-card-clock {
+            padding: calc(var(--panel-side) * 0.055);
+        }
+
+        .board-card.panel-card.board-card-system-usage {
+            padding: calc(var(--panel-side) * 0.07);
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-heading,
+        .board-card.panel-card.board-card-calendar .board-calendar-header {
+            gap: 2cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-heading::before {
+            flex-basis: 2.2cqw;
+            width: 2.2cqw;
+            height: 2.2cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-title {
+            font-size: 7.5cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-label {
+            font-size: 5.2cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-value {
+            margin: 0;
+            font-size: 24cqw;
+            line-height: 0.95;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-detail {
+            font-size: 5.6cqw;
+            line-height: 1.3;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-weather-forecast-item {
+            gap: 0.6cqw;
+            font-size: 4.4cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-weather-forecast-item .forecast-icon {
+            font-size: 7.2cqw;
+        }
+
+        .board-card.panel-card.board-card-weather .board-card-weather-forecast-item .forecast-temp {
+            font-size: 5.8cqw;
+        }
+
+        /* Weather 2x2: city on top, big temperature with the description beside it, details, then the 8-slot forecast. */
+        .board-card.panel-card.board-card-weather.size-2x2 {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-rows: auto auto auto 1fr;
+            column-gap: calc(var(--panel-side) * 0.04);
+            row-gap: calc(var(--panel-side) * 0.025);
+            justify-content: stretch;
+            text-align: left;
+        }
+
+        .board-card.panel-card.board-card-weather.size-2x2 .board-card-heading {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            justify-content: flex-start;
+            padding-right: 8cqw;
+        }
+
+        .board-card.panel-card.board-card-weather.size-2x2 .board-card-value {
+            grid-column: 1;
+            grid-row: 2;
+            align-self: center;
+        }
+
+        .board-card.panel-card.board-card-weather.size-2x2 .board-card-label {
+            grid-column: 2;
+            grid-row: 2;
+            align-self: center;
+            white-space: normal;
+        }
+
+        .board-card.panel-card.board-card-weather.size-2x2 .board-card-detail {
+            grid-column: 1 / -1;
+            grid-row: 3;
+        }
+
+        .board-card.panel-card.board-card-weather.size-2x2 .board-card-weather-forecast {
+            grid-column: 1 / -1;
+            grid-row: 4;
+            align-self: end;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            row-gap: 1.5cqw;
+            margin: 0;
+        }
+
+        /* Weather 1x1: one left-aligned group, vertically centred, with the description right above the temperature. */
+        .board-card.panel-card.board-card-weather.size-1x1 {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: calc(var(--panel-side) * 0.012);
+            text-align: left;
+        }
+
+        .board-card.panel-card.board-card-weather.size-1x1 .board-card-heading {
+            justify-content: flex-start;
+            padding-right: 8cqw;
+            margin-bottom: calc(var(--panel-side) * 0.03);
+        }
+
+        .board-card.panel-card.board-card-weather.size-1x1 .board-card-label {
+            font-size: 6.4cqw;
+        }
+
+        .board-card.panel-card.board-card-weather.size-1x1 .board-card-value {
+            font-size: 38cqw;
+        }
+
+        .board-card.panel-card.board-card-weather.size-1x1 .board-card-detail {
+            margin-top: calc(var(--panel-side) * 0.02);
+            font-size: 6cqw;
+        }
+
+        /* Calendar (1x1 and 2x2): large month, weekday row and day numbers. */
+        .board-card.panel-card.board-card-calendar .board-calendar {
+            gap: 2cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-header {
+            padding-right: 1cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-today-button {
+            flex-basis: 2.2cqw;
+            width: 2.2cqw;
+            height: 2.2cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-month {
+            font-size: 7cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-controls button {
+            width: 6cqw;
+            height: 6cqw;
+            font-size: 3cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-weekdays,
+        .board-card.panel-card.board-card-calendar .board-calendar-days {
+            padding-inline: 1cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-weekdays {
+            font-size: 4.5cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-day {
+            font-size: 6.8cqw;
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-day.is-today {
+            height: min(100%, 10.2cqw);
+        }
+
+        .board-card.panel-card.board-card-calendar .board-calendar-day.is-other-month {
+            opacity: 0.4;
+        }
+
+        /* Clocks (1 timezone and world clock). */
+        .board-card.panel-card.board-card-clock-1x1 {
+            align-items: center;
+            justify-content: center;
+            gap: 3cqw;
+            text-align: center;
+        }
+
+        .board-card.panel-card.board-card-clock-1x1 .board-clock-zone {
+            gap: 3cqw;
+        }
+
+        .board-card.panel-card.board-card-clock-1x1 .board-clock-city {
+            font-size: 7cqw;
+        }
+
+        .board-card.panel-card.board-card-clock-1x1 .board-clock-time {
+            font-size: 27cqw;
+        }
+
+        .board-card.panel-card.board-card-clock-grid {
+            gap: calc(var(--panel-side) * 0.02);
+        }
+
+        .board-card.panel-card.board-card-clock-grid .board-clock-zone {
+            gap: 1.5cqw;
+        }
+
+        .board-card.panel-card.board-card-clock-grid .board-clock-city {
+            font-size: 4.6cqw;
+        }
+
+        .board-card.panel-card.board-card-clock-grid .board-clock-time {
+            font-size: 13cqw;
+        }
+
+        /* System usage 1x1 panel. */
+        .board-card.panel-card.board-card-system-usage .board-system-usage-row {
+            gap: 3cqw;
+        }
+
+        .board-card.panel-card.board-card-system-usage .board-system-usage-label {
+            font-size: 8.5cqw;
+        }
+
+        .board-card.panel-card.board-card-system-usage .board-system-usage-value {
+            font-size: 12cqw;
+        }
+
+        .board-card.panel-card.board-card-system-usage .board-system-usage-bars {
+            gap: 1cqw;
+        }
+
+        .board-card.panel-card.board-card-system-usage .board-system-usage-bar {
+            height: 6.5cqw;
+            border-radius: 1cqw;
+        }
+
+        /* RSS feed panel: banner, QR code and list are all larger than the Glance board version. */
+        .board-card.panel-card.board-card-rss {
+            gap: calc(var(--panel-side) * 0.01);
+            padding: 0;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner {
+            gap: 1.2cqw;
+            padding: 2.4cqw;
+            border-radius: 4.6cqw 4.6cqw 3cqw 3cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-copy {
+            gap: 1.2cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-headline {
+            gap: 1.4cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-feed-title {
+            font-size: 2.4cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-dot {
+            flex-basis: 1.4cqw;
+            width: 1.4cqw;
+            height: 1.4cqw;
+            margin-top: 0.9cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-title {
+            font-size: 3.3cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-summary {
+            font-size: 2.7cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-date {
+            font-size: 2.6cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-details {
+            gap: 2cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-text {
+            gap: 1cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-qr {
+            flex: 0 0 24cqw;
+            width: 24cqw;
+            padding: 0.7cqw;
+            border-radius: 1.6cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-list {
+            padding: 0 3cqw 3cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-list li {
+            gap: 0.6cqw;
+            padding: 1.2cqw 0;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-list li:not(:last-child) {
+            margin-bottom: 1cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-item-title {
+            font-size: 3.4cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-item-meta {
+            font-size: 2.6cqw;
+        }
+
+        .panel-add-cell {
+            flex: none;
+        }
+
+        .panel-add-cell .board-empty-cell-button {
+            border: 1px dashed rgba(255,255,255,0.28);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .panel-add-cell .board-empty-cell-button::before {
+            width: 56px;
+            height: 56px;
+            font-size: 2.2rem;
+            opacity: 0.9;
+            transform: none;
+        }
+
+        .panel-add-cell .board-add-menu {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
@@ -2587,9 +3180,9 @@
         </div>
 
         <main id="viewport">
-            <section class="page" id="page-0" aria-label="Clock bar"></section>
+            <section class="page" id="page-0" aria-label="Clock bar" data-nav-label="Minimise"></section>
 
-            <section class="page" id="page-1">
+            <section class="page" id="page-1" data-nav-label="Clock" data-nav-icon="clock">
                 <div class="text-center">
                     <h2 class="text-[var(--text-muted)] uppercase tracking-[0.3em] text-sm mb-0" id="clock-label">MELBOURNE TIME - GMT+10</h2>
                     <div class="flex items-center justify-center gap-4 mb-4">
@@ -2604,12 +3197,12 @@
                 </div>
             </section>
 
-            <section class="page board-page" id="page-2" aria-label="Info card board">
+            <section class="page board-page" id="page-2" aria-label="Info card board" data-nav-label="Glance">
                 <div id="board-grid" class="board-grid" aria-label="6 by 3 info card grid"></div>
                 <span id="board-status" class="sr-only" role="status" aria-live="polite"></span>
             </section>
 
-            <section class="page" id="page-3">
+            <section class="page" id="page-3" data-nav-label="Settings" data-nav-icon="settings">
                 <div class="card !max-w-2xl">
                     <h3 class="text-xl font-semibold mb-6 flex items-center gap-2">
                         <span class="w-2 h-2 bg-[var(--accent)] rounded-full"></span>
@@ -2625,6 +3218,15 @@
 
                         <div class="flex-1 min-w-0">
                             <div class="settings-panel h-[260px] overflow-y-auto pr-2" data-panel="general">
+                                <div class="settings-group">
+                                    <p class="text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">Layout</p>
+                                    <label class="flex items-center justify-between gap-4 text-sm" for="setting-pages-mode">
+                                        <span>Panel pages layout</span>
+                                        <input id="setting-pages-mode" type="checkbox" role="switch" class="layout-switch">
+                                    </label>
+                                    <p class="text-xs text-[var(--text-muted)] mt-2">Replaces the Glance board with one square panel per page, followed by an add page. The clock bar and big clock pages stay as they are. Applies when you press Save.</p>
+                                </div>
+
                                 <div class="settings-group">
                                     <p class="text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">Clock</p>
                                     <label class="settings-label" for="setting-tz">Timezone (IANA name)</label>
@@ -2739,8 +3341,15 @@
 
     <script>
         let currentPage = 1;
-        const totalPages = 4;
+        let totalPages = 4;
         let isScrolling = false;
+        // Panel pages layout (Settings > General). Read early because the page structure depends on it.
+        let pagesMode = false;
+        try {
+            pagesMode = JSON.parse(localStorage.getItem('dashboardSettings'))?.pagesMode === true;
+        } catch (error) {
+            pagesMode = false;
+        }
         const viewport = document.getElementById('viewport');
         const clockContainer = document.getElementById('clock-container');
         const heroClock = document.getElementById('hero-clock');
@@ -2755,13 +3364,187 @@
         const heroRainIcon = document.getElementById('hero-rain-icon');
         const heroWeatherTemp = document.getElementById('hero-weather-temp');
         const navRail = document.getElementById('nav-rail');
-        const navItems = document.querySelectorAll('.nav-item');
+        const boardPage = document.getElementById('page-2');
+        const settingsPage = document.getElementById('page-3');
+        let navItems = [];
+        let navSignature = '';
 
-        function initView() {
-            viewport.style.transform = `translateY(-${currentPage * 100}vh)`;
+        const NAV_ICON_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"';
+        const NAV_ICONS = {
+            clock: `<svg ${NAV_ICON_ATTRS}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
+            settings: `<svg ${NAV_ICON_ATTRS}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+            plus: `<svg ${NAV_ICON_ATTRS}><path d="M12 5v14M5 12h14"/></svg>`
+        };
+
+        // The pages that currently exist, in order. Hidden pages (the Glance board in the panel pages layout) do not count.
+        function getPageElements() {
+            return Array.from(viewport.children).filter(el => el.classList.contains('page') && !el.hidden);
+        }
+
+        // The settings page is always last and is excluded from scroll/arrow navigation.
+        // In the panel pages layout the add page is also reached only from the side dots, like Settings.
+        function navMaxPage() {
+            return pagesMode ? totalPages - 3 : totalPages - 2;
+        }
+
+        function isDotOnlyPage(index) {
+            return index === totalPages - 1 || (pagesMode && index === totalPages - 2);
+        }
+
+        function rebuildNav() {
+            const pages = getPageElements();
+            const signature = pages.map(page => `${page.dataset.navLabel || ''}|${page.dataset.navIcon || ''}`).join('\n');
+            if (signature === navSignature && navItems.length === pages.length) return;
+            navSignature = signature;
+            navRail.replaceChildren();
+            navItems = pages.map((page, index) => {
+                const item = document.createElement('div');
+                const icon = NAV_ICONS[page.dataset.navIcon];
+                item.className = `nav-item${icon ? ' nav-item-icon' : ''}`;
+                item.dataset.page = String(index);
+                const label = document.createElement('span');
+                label.className = 'nav-label';
+                label.textContent = page.dataset.navLabel || `Page ${index}`;
+                item.appendChild(label);
+                if (icon) item.insertAdjacentHTML('beforeend', icon);
+                item.addEventListener('click', () => {
+                    if (navDragJustEnded) return; // the click that ends a drag is not a navigation
+                    goToPage(index);
+                });
+                if (pagesMode && page.dataset.panelId) {
+                    item.classList.add('is-reorderable');
+                    item.dataset.panelId = page.dataset.panelId;
+                    enableNavReorder(item);
+                }
+                navRail.appendChild(item);
+                return item;
+            });
+        }
+
+        // Panel pages layout: drag a panel's dot in the side list to reorder the panels.
+        // Mouse: press and drag. Touch: press and hold briefly, then drag. The clock bar, big clock,
+        // add page and Settings are not draggable and never move.
+        let navDragJustEnded = false;
+
+        function enableNavReorder(item) {
+            const HOLD_MS = 280;
+            let press = null;
+            let dragging = false;
+            let rects = [];
+            let dropIndex = 0;
+            let line = null;
+            let navTop = 0;
+
+            const reorderables = () => navItems.filter(el => el.classList.contains('is-reorderable'));
+
+            function updateDrag(clientY) {
+                item.style.setProperty('--drag-y', `${clientY - press.y}px`);
+                dropIndex = rects.filter(rect => rect.mid < clientY).length;
+                const lineY = dropIndex === 0
+                    ? rects[0].top - 10
+                    : dropIndex === rects.length
+                        ? rects[rects.length - 1].bottom + 10
+                        : (rects[dropIndex - 1].bottom + rects[dropIndex].top) / 2;
+                line.style.top = `${lineY - navTop}px`;
+            }
+
+            function beginDrag() {
+                if (!press || dragging) return;
+                const others = reorderables().filter(el => el !== item);
+                if (!others.length) return; // a single panel has nothing to reorder
+                dragging = true;
+                try { item.setPointerCapture(press.id); } catch (error) { /* not every browser supports capture here */ }
+                rects = others.map(el => {
+                    const rect = el.getBoundingClientRect();
+                    return { top: rect.top, bottom: rect.bottom, mid: (rect.top + rect.bottom) / 2 };
+                });
+                navTop = navRail.getBoundingClientRect().top;
+                line = document.createElement('div');
+                line.className = 'nav-drop-line';
+                navRail.appendChild(line);
+                navRail.classList.add('is-reordering');
+                item.classList.add('is-dragging');
+                if (navigator.vibrate) navigator.vibrate(12);
+                updateDrag(press.lastY);
+            }
+
+            function finish(commit) {
+                if (!press) return;
+                clearTimeout(press.timer);
+                const wasDragging = dragging;
+                press = null;
+                dragging = false;
+                if (!wasDragging) return;
+                line?.remove();
+                line = null;
+                navRail.classList.remove('is-reordering');
+                item.classList.remove('is-dragging');
+                item.style.removeProperty('--drag-y');
+                navDragJustEnded = true;
+                setTimeout(() => { navDragJustEnded = false; }, 80);
+                const from = reorderables().indexOf(item);
+                if (commit && dropIndex !== from) reorderPanels(item.dataset.panelId, dropIndex);
+            }
+
+            item.addEventListener('pointerdown', event => {
+                if (event.pointerType === 'mouse' && event.button !== 0) return;
+                press = {
+                    id: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    lastY: event.clientY,
+                    type: event.pointerType,
+                    timer: 0
+                };
+                if (event.pointerType !== 'mouse') press.timer = setTimeout(beginDrag, HOLD_MS);
+            });
+
+            item.addEventListener('pointermove', event => {
+                if (!press) return;
+                press.lastY = event.clientY;
+                if (dragging) {
+                    event.preventDefault();
+                    updateDrag(event.clientY);
+                    return;
+                }
+                const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y);
+                if (press.type === 'mouse') {
+                    if (moved > 5) beginDrag();
+                } else if (moved > 12) {
+                    // Moved before the hold finished: not a drag.
+                    clearTimeout(press.timer);
+                    press = null;
+                }
+            });
+
+            item.addEventListener('pointerup', () => finish(true));
+            item.addEventListener('pointercancel', () => finish(false));
+            item.addEventListener('contextmenu', event => event.preventDefault());
+        }
+
+        function reorderPanels(panelId, newIndex) {
+            const from = panelCards.findIndex(card => String(card.id) === String(panelId));
+            if (from === -1) return;
+            const currentPanelId = getPageElements()[currentPage]?.dataset.panelId;
+            const [card] = panelCards.splice(from, 1);
+            panelCards.splice(Math.min(Math.max(newIndex, 0), panelCards.length), 0, card);
+            savePanelLayout();
+            // Stay on the same panel if the user was looking at one.
+            if (currentPanelId) {
+                const position = panelCards.findIndex(item => String(item.id) === currentPanelId);
+                if (position !== -1) currentPage = 2 + position;
+            }
+            renderPanelPages();
+        }
+
+        function applyPageChrome() {
+            // Percentages here are of the viewport element, which is exactly one page tall. Using vh drifts on phones, where the address bar changes the visible height.
+            viewport.style.transform = `translateY(-${currentPage * 100}%)`;
             navItems.forEach((item, i) => item.classList.toggle('active', i === currentPage));
             navRail.classList.toggle('hidden', currentPage === 0);
             clockContainer.classList.toggle('bar-only', currentPage === 0);
+            // Panel pages layout: pages 2 and beyond keep the clock bar but hide the "Q" and the speech indicator.
+            document.body.classList.toggle('no-top-bar', pagesMode && currentPage >= 2);
             if (currentPage === 1) {
                 clockContainer.classList.remove('collapsed');
                 mainClock.classList.add('hidden');
@@ -2771,40 +3554,32 @@
                 mainClock.classList.remove('hidden');
                 miniClock.classList.add('hidden');
             }
+        }
+
+        function initView() {
+            boardPage.hidden = pagesMode;
+            totalPages = getPageElements().length;
+            rebuildNav();
+            applyPageChrome();
         }
         initView();
 
         function goToPage(index) {
             if (index < 0 || index >= totalPages) return;
             currentPage = index;
-            viewport.style.transform = `translateY(-${currentPage * 100}vh)`;
-            navItems.forEach((item, i) => item.classList.toggle('active', i === currentPage));
-            navRail.classList.toggle('hidden', currentPage === 0);
-            clockContainer.classList.toggle('bar-only', currentPage === 0);
-
-            if (currentPage === 1) {
-                clockContainer.classList.remove('collapsed');
-                mainClock.classList.add('hidden');
-                miniClock.classList.add('hidden');
-            } else {
-                clockContainer.classList.add('collapsed');
-                mainClock.classList.remove('hidden');
-                miniClock.classList.add('hidden');
-            }
+            applyPageChrome();
         }
 
-        const NAV_MAX_PAGE = totalPages - 2; // settings page is excluded from scroll/arrow navigation
-
         window.addEventListener('wheel', (e) => {
-            if (isScrolling || currentPage === totalPages - 1) return;
+            if (isScrolling || isDotOnlyPage(currentPage)) return;
             isScrolling = true;
-            if (e.deltaY > 0) goToPage(Math.min(currentPage + 1, NAV_MAX_PAGE));
+            if (e.deltaY > 0) goToPage(Math.min(currentPage + 1, navMaxPage()));
             else goToPage(currentPage - 1);
             setTimeout(() => { isScrolling = false; }, 800);
         }, { passive: true });
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && (openBoardMenuId !== null || openBoardCell !== null)) {
+            if (e.key === 'Escape' && (openBoardMenuId !== null || openBoardCell !== null || panelAddMenuOpen)) {
                 closeBoardMenu();
                 return;
             }
@@ -2821,25 +3596,21 @@
                 goToPage(0);
                 return;
             }
-            if (currentPage === totalPages - 1) return;
+            if (isDotOnlyPage(currentPage)) return;
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                goToPage(Math.min(currentPage + 1, NAV_MAX_PAGE));
+                goToPage(Math.min(currentPage + 1, navMaxPage()));
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 goToPage(currentPage - 1);
             }
         });
 
-        navItems.forEach(item => {
-            item.addEventListener('click', () => goToPage(parseInt(item.dataset.page)));
-        });
-
         let touchStartY = 0;
         window.addEventListener('touchstart', e => touchStartY = e.touches[0].clientY);
         window.addEventListener('touchend', e => {
             const touchEndY = e.changedTouches[0].clientY;
-            if (touchStartY - touchEndY > 50) goToPage(currentPage + 1);
+            if (touchStartY - touchEndY > 50 && (!pagesMode || currentPage < navMaxPage())) goToPage(currentPage + 1);
             if (touchStartY - touchEndY < -50) goToPage(currentPage - 1);
         });
 
@@ -2883,8 +3654,10 @@
                 label: 'System usage',
                 width: 2,
                 height: 1,
-                fixedSize: true,
-                allowedSizes: [{ width: 2, height: 1 }]
+                allowedSizes: [
+                    { width: 2, height: 1 },
+                    { width: 1, height: 1 }
+                ]
             },
             {
                 id: 'rss',
@@ -2977,6 +3750,26 @@
         let rssBannerIntervalId = null;
         let legacyRSSUrl = '';
         const boardCards = [];
+        const panelCards = [];
+        const PANELS_STORAGE_KEY = 'dashboardPanels';
+        // Panel types that are laid out for the full panel square (sized from its width) instead of being zoomed up.
+        const PANEL_FLUID_TYPES = ['weather', 'calendar', 'clock-1x1', 'clock-grid', 'system-usage', 'rss'];
+        let panelAddMenuOpen = false;
+
+        // The cards that are on screen: the Glance board's, or the panel pages' in the panel pages layout.
+        function activeBoardCards() {
+            return pagesMode ? panelCards : boardCards;
+        }
+
+        function rerenderCards() {
+            if (pagesMode) renderPanelPages();
+            else renderBoard();
+        }
+
+        function saveActiveLayout() {
+            if (pagesMode) savePanelLayout();
+            else saveBoardLayout();
+        }
 
         function boardCardFits(cardId, col, row, width, height) {
             if (col < 1 || row < 1 || col + width - 1 > BOARD_COLUMNS || row + height - 1 > BOARD_ROWS) {
@@ -3021,7 +3814,7 @@
         }
 
         function updateBoardClocks() {
-            boardGrid.querySelectorAll('.board-clock-time').forEach(time => {
+            document.querySelectorAll('.board-clock-time').forEach(time => {
                 const timezone = time.dataset.timezone;
                 time.textContent = formatBoardClockTime(timezone);
             });
@@ -3072,8 +3865,8 @@
         function updateBoardSystemUsage(data, error = '') {
             boardSystemUsageData = data;
             boardSystemUsageError = error;
-            boardCards.filter(card => card.typeId === 'system-usage').forEach(card => {
-                const element = boardGrid.querySelector(`[data-card-id="${card.id}"]`);
+            activeBoardCards().filter(card => card.typeId === 'system-usage').forEach(card => {
+                const element = document.querySelector(`[data-card-id="${card.id}"]`);
                 if (!element) return;
 
                 const values = {
@@ -3106,9 +3899,13 @@
                     const valueLabel = row.querySelector('.board-system-usage-value');
                     const metricLabel = row.querySelector('.board-system-usage-label');
                     const bars = row.querySelector('.board-system-usage-bars');
-                    metricLabel.textContent = value.label;
-                    metricLabel.title = value.nameError;
-                    valueLabel.textContent = value.text;
+                    // 1x1 shows just CPU / GPU / RAM and a percentage; the full name stays in the tooltip.
+                    const compact = card.width === 1;
+                    metricLabel.textContent = compact ? { cpu: 'CPU', gpu: 'GPU', memory: 'RAM' }[metric] : value.label;
+                    metricLabel.title = compact ? [value.label, value.nameError].filter(Boolean).join(' - ') : value.nameError;
+                    valueLabel.textContent = compact && metric === 'memory' && data
+                        ? `${Math.round(data.memoryPercent)}%`
+                        : value.text;
                     valueLabel.title = value.title || error;
                     bars.setAttribute('aria-valuenow', String(value.percent ?? 0));
                     bars.setAttribute('aria-valuetext', value.percent === null
@@ -3128,7 +3925,7 @@
 
         let isBoardSystemUsageLoading = false;
         async function fetchBoardSystemUsage() {
-            if (isBoardSystemUsageLoading || !boardCards.some(card => card.typeId === 'system-usage')) return;
+            if (isBoardSystemUsageLoading || !activeBoardCards().some(card => card.typeId === 'system-usage')) return;
             isBoardSystemUsageLoading = true;
             try {
                 const endpoint = window.location.protocol === 'file:'
@@ -3357,8 +4154,8 @@
             const active = Boolean(data?.active);
             const playing = active && data.status === 'playing';
 
-            boardCards.filter(card => card.typeId === 'now-playing').forEach(card => {
-                const element = boardGrid.querySelector(`[data-card-id="${card.id}"]`);
+            activeBoardCards().filter(card => card.typeId === 'now-playing').forEach(card => {
+                const element = document.querySelector(`[data-card-id="${card.id}"]`);
                 const panel = element?.querySelector('.board-now-playing');
                 if (!panel) return;
 
@@ -3378,8 +4175,10 @@
                         const url = new URL('/media-thumbnail', getNowPlayingEndpoint());
                         url.searchParams.set('key', key);
                         image.src = url.href;
+                        panel.style.setProperty('--np-art', `url("${url.href}")`);
                     } else {
                         image.removeAttribute('src');
+                        panel.style.removeProperty('--np-art');
                         panel.classList.remove('has-art');
                     }
                 }
@@ -3399,8 +4198,8 @@
         function tickNowPlaying() {
             const data = nowPlayingData;
             const duration = data?.active && Number.isFinite(data.duration) ? data.duration : null;
-            boardCards.filter(card => card.typeId === 'now-playing').forEach(card => {
-                const panel = boardGrid.querySelector(`[data-card-id="${card.id}"] .board-now-playing`);
+            activeBoardCards().filter(card => card.typeId === 'now-playing').forEach(card => {
+                const panel = document.querySelector(`[data-card-id="${card.id}"] .board-now-playing`);
                 if (!panel) return;
                 const scrubbing = nowPlayingScrub?.cardId === card.id;
                 let position = currentNowPlayingPosition();
@@ -3423,7 +4222,7 @@
         }
 
         async function fetchNowPlaying() {
-            if (isNowPlayingLoading || !boardCards.some(card => card.typeId === 'now-playing')) return;
+            if (isNowPlayingLoading || !activeBoardCards().some(card => card.typeId === 'now-playing')) return;
             isNowPlayingLoading = true;
             try {
                 const response = await fetch(new URL('/media-session', getNowPlayingEndpoint()));
@@ -3476,12 +4275,12 @@
                 card.shelfVolumes = [];
                 card.shelfStatus = 'empty';
                 card.shelfMenuStatus = '';
-                renderBoard();
+                rerenderCards();
                 return;
             }
             if (card.shelfStatus !== 'ok') {
                 card.shelfStatus = 'loading';
-                renderBoard();
+                rerenderCards();
             }
             try {
                 const origin = window.location.protocol === 'file:'
@@ -3492,7 +4291,7 @@
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Manga shelf API returned HTTP ${response.status}`);
                 const data = await response.json();
-                if (!boardCards.includes(card) || card.shelfLoadToken !== requestToken) return;
+                if (!activeBoardCards().includes(card) || card.shelfLoadToken !== requestToken) return;
                 card.shelfVolumes = (Array.isArray(data.volumes) ? data.volumes : [])
                     .filter(volume => volume && Number.isFinite(volume.number) && typeof volume.cover === 'string')
                     .sort((a, b) => a.number - b.number);
@@ -3506,14 +4305,14 @@
                         (data.warnings?.length ? `, ${data.warnings.length} skipped (see console)` : '')
                     : card.shelfError;
             } catch (error) {
-                if (!boardCards.includes(card) || card.shelfLoadToken !== requestToken) return;
+                if (!activeBoardCards().includes(card) || card.shelfLoadToken !== requestToken) return;
                 console.error(`Manga shelf error for card ${card.id}:`, error);
                 card.shelfVolumes = [];
                 card.shelfStatus = 'error';
                 card.shelfError = 'Could not read this folder';
                 card.shelfMenuStatus = card.shelfError;
             }
-            renderBoard();
+            rerenderCards();
         }
 
         const mangaCoverImages = new Map();
@@ -3831,6 +4630,14 @@
                 start = Math.min(Math.max(start, 0), maxStart);
                 if (selectedPosition < start) start = selectedPosition;
                 else if (selectedPosition > start + slots) start = selectedPosition - slots;
+                // Unless the open cover is the first or last book, keep one spine visible on each side of it.
+                if (slots >= 2) {
+                    const lowestNeeded = selectedPosition > 0 ? selectedPosition - 1 : 0;
+                    const highestNeeded = selectedPosition < count - 1 ? selectedPosition + 1 : count - 1;
+                    if (start > lowestNeeded) start = lowestNeeded;
+                    if (start + slots < highestNeeded) start = highestNeeded - slots;
+                    start = Math.min(Math.max(start, 0), maxStart);
+                }
                 card.shelfStart = start;
                 const end = Math.min(count - 1, start + slots);
 
@@ -4264,6 +5071,109 @@
             }
         }
 
+        function hydrateSavedBoardCard(restoredCard, card, type) {
+            if (type.timezoneCount) {
+                restoredCard.timezones = Array.from({ length: type.timezoneCount }, (_, index) => {
+                    const timezone = card.timezones?.[index];
+                    if (isValidBoardTimezone(timezone)) return timezone;
+                    if (timezone !== undefined) {
+                        console.warn('Using the default timezone for an invalid saved clock timezone.', timezone);
+                    }
+                    return type.defaultTimezones[index];
+                });
+            }
+            if (card.typeId === 'rss') initializeRSSCard(restoredCard, card.rssUrl);
+            if (card.typeId === 'calendar') initializeBoardCalendar(restoredCard);
+            if (card.typeId === 'media') {
+                restoredCard.mediaUrl = typeof card.mediaUrl === 'string' ? card.mediaUrl : '';
+            }
+            if (card.typeId === 'manga-shelf') {
+                initializeMangaShelf(restoredCard, card.shelfPath, card.shelfAlign);
+            }
+            if (card.typeId === 'url') {
+                restoredCard.url = typeof card.url === 'string' ? card.url : '';
+                restoredCard.imagePath = typeof card.imagePath === 'string' ? card.imagePath : '';
+            }
+            if (card.typeId === 'url-grid') {
+                restoredCard.urls = Array.from({ length: 4 }, (_, index) =>
+                    Array.isArray(card.urls) && typeof card.urls[index] === 'string' ? card.urls[index] : ''
+                );
+                restoredCard.images = Array.from({ length: 4 }, (_, index) =>
+                    Array.isArray(card.images) && typeof card.images[index] === 'string' ? card.images[index] : ''
+                );
+            }
+        }
+
+        function serializeBoardCard({ id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign }) {
+            return { id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign };
+        }
+
+        function savePanelLayout() {
+            const layout = {
+                version: 1,
+                nextId: nextBoardCardId,
+                cards: panelCards.map(serializeBoardCard)
+            };
+            try {
+                localStorage.setItem(PANELS_STORAGE_KEY, JSON.stringify(layout));
+            } catch (error) {
+                console.error('Could not save the panel pages:', error);
+                boardStatus.textContent = 'Could not save the panel pages; browser storage is unavailable';
+            }
+        }
+
+        function restorePanelLayout() {
+            let stored;
+            try {
+                const serialized = localStorage.getItem(PANELS_STORAGE_KEY);
+                if (!serialized) return;
+                stored = JSON.parse(serialized);
+            } catch (error) {
+                console.error('Could not load the saved panel pages:', error);
+                boardStatus.textContent = 'Could not load the saved panel pages';
+                return;
+            }
+
+            if (!stored || stored.version !== 1 || !Array.isArray(stored.cards)) {
+                console.warn('Ignoring unsupported saved panel pages.');
+                return;
+            }
+
+            // Panels share the id counter with the Glance board, so ids never clash between the two layouts.
+            const savedIds = stored.cards.map(card => card && card.id).filter(id => Number.isInteger(id) && id > 0);
+            nextBoardCardId = Math.max(
+                nextBoardCardId,
+                Number.isInteger(stored.nextId) ? stored.nextId : 0,
+                ...savedIds.map(id => id + 1)
+            );
+            const usedIds = new Set(boardCards.map(card => card.id));
+            stored.cards.forEach(savedCard => {
+                const type = savedCard && typeof savedCard === 'object'
+                    ? BOARD_CARD_TYPES.find(item => item.id === savedCard.typeId)
+                    : null;
+                const validSize = type && panelSizesFor(type).some(size =>
+                    size.width === savedCard.width && size.height === savedCard.height
+                );
+                if (!validSize) {
+                    console.warn('Skipping an invalid saved panel.', savedCard);
+                    return;
+                }
+                let id = Number.isInteger(savedCard.id) && savedCard.id > 0 ? savedCard.id : 0;
+                if (!id || usedIds.has(id)) id = nextBoardCardId++;
+                usedIds.add(id);
+                const restoredCard = {
+                    id,
+                    typeId: type.id,
+                    col: 1,
+                    row: 1,
+                    width: savedCard.width,
+                    height: savedCard.height
+                };
+                hydrateSavedBoardCard(restoredCard, savedCard, type);
+                panelCards.push(restoredCard);
+            });
+        }
+
         function restoreBoardLayout() {
             let stored;
             try {
@@ -4318,36 +5228,7 @@
                     width: card.width,
                     height: card.height
                 };
-                if (type.timezoneCount) {
-                    restoredCard.timezones = Array.from({ length: type.timezoneCount }, (_, index) => {
-                        const timezone = card.timezones?.[index];
-                        if (isValidBoardTimezone(timezone)) return timezone;
-                        if (timezone !== undefined) {
-                            console.warn('Using the default timezone for an invalid saved clock timezone.', timezone);
-                        }
-                        return type.defaultTimezones[index];
-                    });
-                }
-                if (card.typeId === 'rss') initializeRSSCard(restoredCard, card.rssUrl);
-                if (card.typeId === 'calendar') initializeBoardCalendar(restoredCard);
-                if (card.typeId === 'media') {
-                    restoredCard.mediaUrl = typeof card.mediaUrl === 'string' ? card.mediaUrl : '';
-                }
-                if (card.typeId === 'manga-shelf') {
-                    initializeMangaShelf(restoredCard, card.shelfPath, card.shelfAlign);
-                }
-                if (card.typeId === 'url') {
-                    restoredCard.url = typeof card.url === 'string' ? card.url : '';
-                    restoredCard.imagePath = typeof card.imagePath === 'string' ? card.imagePath : '';
-                }
-                if (card.typeId === 'url-grid') {
-                    restoredCard.urls = Array.from({ length: 4 }, (_, index) =>
-                        Array.isArray(card.urls) && typeof card.urls[index] === 'string' ? card.urls[index] : ''
-                    );
-                    restoredCard.images = Array.from({ length: 4 }, (_, index) =>
-                        Array.isArray(card.images) && typeof card.images[index] === 'string' ? card.images[index] : ''
-                    );
-                }
+                hydrateSavedBoardCard(restoredCard, card, type);
                 boardCards.push(restoredCard);
             });
 
@@ -4357,7 +5238,7 @@
                 : maximumId + 1;
         }
 
-        function createBoardCard(typeId, placement, size = null) {
+        function createBoardCard(typeId, placement, size = null, { panel = false } = {}) {
             const type = BOARD_CARD_TYPES.find(item => item.id === typeId);
             if (!type) throw new Error(`Unknown board card type: ${typeId}`);
             const cardSize = size || type;
@@ -4386,11 +5267,12 @@
                 legacyRSSUrl = '';
             }
             if (type.id === 'calendar') initializeBoardCalendar(card);
-            boardCards.push(card);
-            saveBoardLayout();
+            (panel ? panelCards : boardCards).push(card);
+            saveActiveLayout();
             openBoardCell = null;
             openBoardMenuId = null;
-            renderBoard();
+            panelAddMenuOpen = false;
+            rerenderCards();
             if (card.typeId === 'rss' && card.rssUrl) loadRSSCard(card);
             if (card.typeId === 'system-usage') fetchBoardSystemUsage();
             if (card.typeId === 'now-playing') fetchNowPlaying();
@@ -4424,7 +5306,7 @@
             return candidates[0] || null;
         }
 
-        function createBoardMenu(card) {
+        function createBoardMenu(card, { panel = false } = {}) {
             const menu = document.createElement('div');
             const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
             menu.className = `board-card-menu${type?.timezoneCount ? ' clock-menu' : ''}${type?.id === 'rss' ? ' rss-menu' : ''}${type?.id === 'media' || type?.id === 'manga-shelf' ? ' media-menu' : ''}${type?.id === 'url' || type?.id === 'url-grid' ? ' url-menu' : ''}`;
@@ -4460,8 +5342,8 @@
 
                     select.addEventListener('change', () => {
                         card.timezones[index] = select.value;
-                        saveBoardLayout();
-                        const zone = boardGrid.querySelector(
+                        saveActiveLayout();
+                        const zone = document.querySelector(
                             `[data-card-id="${card.id}"] .board-clock-zone[data-timezone-index="${index}"]`
                         );
                         const city = zone?.querySelector('.board-clock-city');
@@ -4538,9 +5420,9 @@
                     setting.addEventListener('submit', event => {
                         event.preventDefault();
                         card.mediaUrl = input.value.trim();
-                        saveBoardLayout();
+                        saveActiveLayout();
                         openBoardMenuId = null;
-                        renderBoard();
+                        rerenderCards();
                     });
                     setting.append(label, inputRow);
                     menu.appendChild(setting);
@@ -4592,8 +5474,8 @@
                             if (card.shelfAlign === side) return;
                             card.shelfAlign = side;
                             card.shelfStart = null;
-                            saveBoardLayout();
-                            renderBoard();
+                            saveActiveLayout();
+                            rerenderCards();
                         });
                         alignGroup.appendChild(button);
                     });
@@ -4606,7 +5488,7 @@
                             card.shelfStart = null;
                         }
                         card.shelfPath = nextShelfPath;
-                        saveBoardLayout();
+                        saveActiveLayout();
                         card.shelfMenuStatus = '';
                         loadMangaShelf(card);
                     });
@@ -4664,9 +5546,9 @@
                         }
                         card.url = url;
                         card.imagePath = imageInput.value.trim();
-                        saveBoardLayout();
+                        saveActiveLayout();
                         openBoardMenuId = null;
-                        renderBoard();
+                        rerenderCards();
                     });
                     setting.append(label, inputRow, imageLabel, imageInput, status);
                     menu.appendChild(setting);
@@ -4726,15 +5608,34 @@
                         }
                         card.urls = urls;
                         card.images = imageInputs.map(input => input.value.trim());
-                        saveBoardLayout();
+                        saveActiveLayout();
                         openBoardMenuId = null;
-                        renderBoard();
+                        rerenderCards();
                     });
                     setting.append(saveButton, status);
                     menu.appendChild(setting);
                 }
 
-                if (!type?.fixedSize && type?.id !== 'url') {
+                if (panel) {
+                    const panelSizes = panelSizesFor(type);
+                    if (panelSizes.length > 1) {
+                        panelSizes.forEach(size => {
+                            const option = document.createElement('button');
+                            option.type = 'button';
+                            option.className = 'board-card-size-option';
+                            option.textContent = `${size.width} × ${size.height}`;
+                            option.setAttribute('aria-pressed', String(card.width === size.width && card.height === size.height));
+                            option.addEventListener('click', () => {
+                                card.width = size.width;
+                                card.height = size.height;
+                                openBoardMenuId = null;
+                                saveActiveLayout();
+                                rerenderCards();
+                            });
+                            menu.appendChild(option);
+                        });
+                    }
+                } else if (!type?.fixedSize && type?.id !== 'url') {
                     (type?.allowedSizes || BOARD_SIZES).forEach(size => {
                         const placement = findBoardPlacement(card.id, size.width, size.height, card.col, card.row);
                         const option = document.createElement('button');
@@ -4752,8 +5653,8 @@
                             card.height = size.height;
                             openBoardMenuId = null;
                             openBoardCell = null;
-                            saveBoardLayout();
-                            renderBoard();
+                            saveActiveLayout();
+                            rerenderCards();
                         });
                         menu.appendChild(option);
                     });
@@ -4767,14 +5668,14 @@
             const removeOption = document.createElement('button');
             removeOption.type = 'button';
             removeOption.className = 'board-card-size-option board-card-remove-option';
-            removeOption.textContent = 'Remove card';
+            removeOption.textContent = panel ? 'Remove panel' : 'Remove card';
             removeOption.addEventListener('click', () => {
-                const cardIndex = boardCards.findIndex(item => item.id === card.id);
+                const cardIndex = activeBoardCards().findIndex(item => item.id === card.id);
                 if (cardIndex === -1) return;
-                boardCards.splice(cardIndex, 1);
+                activeBoardCards().splice(cardIndex, 1);
                 openBoardMenuId = null;
-                saveBoardLayout();
-                renderBoard();
+                saveActiveLayout();
+                rerenderCards();
             });
             menu.appendChild(removeOption);
             return menu;
@@ -4809,6 +5710,314 @@
             return menu;
         }
 
+        function buildBoardCardElement(card, { panel = false } = {}) {
+            const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
+            if (!type) {
+                console.error(`Cannot render unknown board card type: ${card.typeId}`);
+                return null;
+            }
+
+            const element = document.createElement('article');
+            element.className = `board-card board-card-${type.id}${openBoardMenuId === card.id ? ' menu-open' : ''}${panel ? ` panel-card${PANEL_FLUID_TYPES.includes(type.id) ? ' panel-fluid' : ''}` : ''}`;
+            if (type.timezoneCount) element.classList.add('board-card-clock');
+            element.classList.add(`size-${card.width}x${card.height}`);
+            if (!panel) {
+                element.style.gridColumn = `${card.col} / span ${card.width}`;
+                element.style.gridRow = `${card.row} / span ${card.height}`;
+            }
+            element.dataset.cardId = String(card.id);
+            element.dataset.cardType = card.typeId;
+            element.setAttribute('aria-label', `${type.label} card, ${card.width} by ${card.height}`);
+            if (!panel) {
+                element.draggable = true;
+                element.addEventListener('dragstart', event => {
+                    if (event.target instanceof Element && event.target.closest('button')) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    draggedBoardCardId = card.id;
+                    boardGrid.classList.add('is-dragging-card');
+                    openBoardMenuId = null;
+                    openBoardCell = null;
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', String(card.id));
+                    requestAnimationFrame(() => element.classList.add('is-dragging'));
+                });
+                element.addEventListener('dragend', () => {
+                    draggedBoardCardId = null;
+                    boardGrid.classList.remove('is-dragging-card');
+                    hideBoardDragPreview();
+                    document.querySelectorAll('.board-empty-cell').forEach(cell => {
+                        cell.classList.remove('drop-target', 'drop-invalid');
+                    });
+                    element.classList.remove('is-dragging');
+                });
+            }
+
+            const menuButton = document.createElement('button');
+            menuButton.type = 'button';
+            menuButton.className = 'board-card-menu-button';
+            const menuAction = type.id === 'system-usage'
+                ? 'Card actions for'
+                : type.timezoneCount || type.id === 'media' || type.id === 'url' || type.id === 'url-grid'
+                    ? 'Configure'
+                    : 'Change size of';
+            menuButton.setAttribute('aria-label', `${menuAction} ${type.label} card`);
+            menuButton.setAttribute('aria-expanded', String(openBoardMenuId === card.id));
+            menuButton.innerHTML = '<span aria-hidden="true">···</span>';
+            menuButton.addEventListener('click', event => {
+                event.stopPropagation();
+                openBoardCell = null;
+                panelAddMenuOpen = false;
+                openBoardMenuId = openBoardMenuId === card.id ? null : card.id;
+                rerenderCards();
+                if (openBoardMenuId === card.id) {
+                    document.querySelector('.board-card.menu-open .board-rss-feed-input, .board-card.menu-open .board-media-url-input, .board-card.menu-open .board-url-input, .board-card.menu-open .board-card-size-option:not(:disabled), .board-card.menu-open select')?.focus();
+                    fitBoardMenus();
+                }
+            });
+            element.appendChild(menuButton);
+
+            if (type.timezoneCount) {
+                card.timezones.forEach((timezone, index) => {
+                    const zone = document.createElement('div');
+                    zone.className = 'board-clock-zone';
+                    zone.dataset.timezoneIndex = String(index);
+                    const city = document.createElement('p');
+                    city.className = 'board-clock-city';
+                    city.textContent = getBoardTimezoneLabel(timezone).toUpperCase();
+                    const time = document.createElement('time');
+                    time.className = 'board-clock-time';
+                    time.dataset.timezone = timezone;
+                    time.textContent = formatBoardClockTime(timezone);
+                    zone.append(city, time);
+                    element.appendChild(zone);
+                });
+            }
+
+            const weatherCurrent = card.typeId === 'weather'
+                ? document.createElement('div')
+                : null;
+            if (weatherCurrent) weatherCurrent.className = 'board-card-weather-current';
+
+            if (!type.timezoneCount && card.typeId !== 'rss' &&
+                card.typeId !== 'calendar' && card.typeId !== 'media' &&
+                card.typeId !== 'url' && card.typeId !== 'url-grid' &&
+                card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage' &&
+                card.typeId !== 'now-playing') {
+                const heading = document.createElement('div');
+                heading.className = 'board-card-heading';
+                const title = document.createElement('h3');
+                title.className = 'board-card-title';
+                title.textContent = card.typeId === 'weather'
+                    ? (boardWeatherData?.city || 'Weather')
+                    : `Info card ${card.id}`;
+                heading.appendChild(title);
+                if (weatherCurrent) weatherCurrent.appendChild(heading);
+                else element.appendChild(heading);
+            }
+
+            if (card.typeId === 'rss') {
+                renderRSSCard(card, element);
+            } else if (card.typeId === 'calendar') {
+                renderBoardCalendar(card, element);
+            } else if (card.typeId === 'media') {
+                renderBoardMedia(card, element);
+            } else if (card.typeId === 'manga-shelf') {
+                renderMangaShelf(card, element);
+            } else if (card.typeId === 'url') {
+                renderBoardUrl(card, element);
+            } else if (card.typeId === 'url-grid') {
+                renderBoardUrlGrid(card, element);
+            } else if (card.typeId === 'system-usage') {
+                renderBoardSystemUsage(element);
+            } else if (card.typeId === 'now-playing') {
+                renderNowPlaying(card, element);
+            } else if (card.typeId === 'weather') {
+                const data = boardWeatherData;
+                const label = document.createElement('p');
+                label.className = 'board-card-label';
+                label.textContent = data ? `${data.emoji} ${data.description}` : 'Fetching weather';
+                weatherCurrent.appendChild(label);
+
+                const value = document.createElement('p');
+                value.className = 'board-card-value mono';
+                value.textContent = data?.temperature ?? '--°';
+                weatherCurrent.appendChild(value);
+
+                const detail = document.createElement('p');
+                detail.className = 'board-card-detail';
+                detail.textContent = data
+                    ? `↑ ${data.high}° · ↓ ${data.low}° · ☔ ${data.precipitation}%`
+                    : 'Weather details unavailable';
+                weatherCurrent.appendChild(detail);
+                element.appendChild(weatherCurrent);
+
+                if (card.width >= 2 && data?.forecast.length) {
+                    const forecast = document.createElement('div');
+                    forecast.className = 'board-card-weather-forecast';
+                    const forecastLimit = card.height === 1 ? 2 : 8;
+                    data.forecast.slice(0, forecastLimit).forEach(item => {
+                        const forecastItem = document.createElement('div');
+                        forecastItem.className = 'board-card-weather-forecast-item';
+                        const forecastTime = document.createElement('span');
+                        forecastTime.textContent = item.time;
+                        const forecastIcon = document.createElement('span');
+                        forecastIcon.className = 'forecast-icon';
+                        forecastIcon.textContent = item.icon;
+                        const forecastTemperature = document.createElement('span');
+                        forecastTemperature.className = 'forecast-temp';
+                        forecastTemperature.textContent = `${item.temperature}°`;
+                        forecastItem.append(forecastTime, forecastIcon, forecastTemperature);
+                        forecast.appendChild(forecastItem);
+                    });
+                    element.appendChild(forecast);
+                }
+            } else if (!type.timezoneCount && card.typeId !== 'media' && card.typeId !== 'url') {
+                const label = document.createElement('p');
+                label.className = 'board-card-label';
+                label.textContent = 'Placeholder';
+                element.appendChild(label);
+
+                const value = document.createElement('p');
+                value.className = 'board-card-value mono';
+                value.textContent = '—';
+                element.appendChild(value);
+
+                const detail = document.createElement('p');
+                detail.className = 'board-card-detail';
+                detail.textContent = 'Dummy card · content coming later';
+                element.appendChild(detail);
+            }
+
+            if (openBoardMenuId === card.id) element.appendChild(createBoardMenu(card, { panel }));
+            return element;
+        }
+
+        // ----- Panel pages layout -----
+        // Panels are square: 1x1 or 2x2, limited to the sizes each card type supports.
+        function panelSizesFor(type) {
+            const sizes = type.fixedSize
+                ? [{ width: type.width, height: type.height }]
+                : (type.allowedSizes || BOARD_SIZES);
+            return sizes
+                .filter(size => size.width === size.height && (size.width === 1 || size.width === 2))
+                .sort((a, b) => a.width - b.width);
+        }
+
+        // Rebuilds the page sections: [clock bar, big clock, one page per panel, add page, settings].
+        function rebuildPages(stayOnSettings = false) {
+            const wasOnSettings = stayOnSettings || currentPage === totalPages - 1;
+            viewport.querySelectorAll('.panel-page').forEach(page => page.remove());
+            boardPage.hidden = pagesMode;
+            if (pagesMode) {
+                panelCards.forEach(card => {
+                    const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
+                    const page = document.createElement('section');
+                    page.className = 'page panel-page';
+                    page.dataset.panelId = String(card.id);
+                    page.dataset.navLabel = type ? type.label : 'Panel';
+                    page.setAttribute('aria-label', `${type ? type.label : 'Panel'} panel`);
+                    viewport.insertBefore(page, settingsPage);
+                });
+                const addPage = document.createElement('section');
+                addPage.className = 'page panel-page panel-add-page';
+                addPage.dataset.navLabel = 'Add panel';
+                addPage.dataset.navIcon = 'plus';
+                addPage.setAttribute('aria-label', 'Add a panel');
+                viewport.insertBefore(addPage, settingsPage);
+            }
+            totalPages = getPageElements().length;
+            currentPage = wasOnSettings ? totalPages - 1 : Math.min(currentPage, totalPages - 2);
+            rebuildNav();
+            applyPageChrome();
+        }
+
+        function createPanelAddMenu() {
+            const menu = document.createElement('div');
+            menu.className = 'board-add-menu';
+            menu.setAttribute('role', 'group');
+            menu.setAttribute('aria-label', 'Choose panel type');
+            BOARD_CARD_TYPES.forEach(type => {
+                const sizes = panelSizesFor(type);
+                if (!sizes.length) return; // no square size (for example the 2 x 1 system usage card)
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.className = 'board-card-size-option';
+                option.textContent = type.label;
+                option.addEventListener('click', () => {
+                    // New panels start at the largest square size the type supports; change it from the ··· menu.
+                    createBoardCard(type.id, { col: 1, row: 1 }, sizes[sizes.length - 1], { panel: true });
+                });
+                menu.appendChild(option);
+            });
+            return menu;
+        }
+
+        function renderPanelPages(stayOnSettings = false) {
+            rebuildPages(stayOnSettings);
+
+            panelCards.forEach(card => {
+                const page = viewport.querySelector(`.panel-page[data-panel-id="${card.id}"]`);
+                const element = buildBoardCardElement(card, { panel: true });
+                if (page && element) page.appendChild(element);
+            });
+
+            const addPage = viewport.querySelector('.panel-add-page');
+            if (addPage) {
+                const cell = document.createElement('div');
+                cell.className = `board-empty-cell panel-add-cell${panelAddMenuOpen ? ' menu-open' : ''}`;
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.className = 'board-empty-cell-button';
+                addButton.setAttribute('aria-label', 'Add a panel');
+                addButton.setAttribute('aria-expanded', String(panelAddMenuOpen));
+                addButton.addEventListener('click', () => {
+                    openBoardMenuId = null;
+                    openBoardCell = null;
+                    panelAddMenuOpen = !panelAddMenuOpen;
+                    renderPanelPages();
+                    if (panelAddMenuOpen) {
+                        document.querySelector('.panel-add-cell .board-add-menu button')?.focus();
+                    }
+                });
+                cell.appendChild(addButton);
+                if (panelAddMenuOpen) cell.appendChild(createPanelAddMenu());
+                addPage.appendChild(cell);
+            }
+
+            if (panelCards.some(card => card.typeId === 'system-usage')) {
+                updateBoardSystemUsage(boardSystemUsageData, boardSystemUsageError);
+            }
+            if (panelCards.some(card => card.typeId === 'now-playing')) {
+                updateNowPlaying(nowPlayingData, nowPlayingError);
+            }
+            updateBoardClocks();
+            fitBoardMenus();
+        }
+
+        function startActiveCardLoaders() {
+            activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
+            activeBoardCards().filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
+        }
+
+        // Called when the layout switch is saved in Settings. Stays on the Settings page.
+        function setLayoutMode() {
+            openBoardMenuId = null;
+            openBoardCell = null;
+            panelAddMenuOpen = false;
+            if (pagesMode) {
+                renderPanelPages(true);
+            } else {
+                rebuildPages(true);
+                renderBoard();
+            }
+            startActiveCardLoaders();
+            fetchBoardSystemUsage();
+            fetchNowPlaying();
+        }
+
         function renderBoard() {
             boardGrid.replaceChildren();
             boardGrid.classList.remove('is-dragging-card');
@@ -4832,9 +6041,9 @@
                         const isAlreadyOpen = openBoardCell?.col === col && openBoardCell?.row === row;
                         openBoardMenuId = null;
                         openBoardCell = isAlreadyOpen ? null : { col, row };
-                        renderBoard();
+                        rerenderCards();
                         if (openBoardCell) {
-                            boardGrid.querySelector('.board-add-menu button')?.focus();
+                            document.querySelector('.board-add-menu button')?.focus();
                         }
                     });
                     cell.appendChild(addButton);
@@ -4873,8 +6082,8 @@
                         hideBoardDragPreview();
                         openBoardMenuId = null;
                         openBoardCell = null;
-                        saveBoardLayout();
-                        renderBoard();
+                        saveActiveLayout();
+                        rerenderCards();
                     });
 
                     if (openBoardCell?.col === col && openBoardCell?.row === row) {
@@ -4885,190 +6094,15 @@
             }
 
             boardCards.forEach(card => {
-                const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
-                if (!type) {
-                    console.error(`Cannot render unknown board card type: ${card.typeId}`);
-                    return;
-                }
-
-                const element = document.createElement('article');
-                element.className = `board-card board-card-${type.id}${openBoardMenuId === card.id ? ' menu-open' : ''}`;
-                if (type.timezoneCount) element.classList.add('board-card-clock');
-                element.classList.add(`size-${card.width}x${card.height}`);
-                element.style.gridColumn = `${card.col} / span ${card.width}`;
-                element.style.gridRow = `${card.row} / span ${card.height}`;
-                element.dataset.cardId = String(card.id);
-                element.dataset.cardType = card.typeId;
-                element.setAttribute('aria-label', `${type.label} card, ${card.width} by ${card.height}`);
-                element.draggable = true;
-                element.addEventListener('dragstart', event => {
-                    if (event.target instanceof Element && event.target.closest('button')) {
-                        event.preventDefault();
-                        return;
-                    }
-
-                    draggedBoardCardId = card.id;
-                    boardGrid.classList.add('is-dragging-card');
-                    openBoardMenuId = null;
-                    openBoardCell = null;
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', String(card.id));
-                    requestAnimationFrame(() => element.classList.add('is-dragging'));
-                });
-                element.addEventListener('dragend', () => {
-                    draggedBoardCardId = null;
-                    boardGrid.classList.remove('is-dragging-card');
-                    hideBoardDragPreview();
-                    boardGrid.querySelectorAll('.board-empty-cell').forEach(cell => {
-                        cell.classList.remove('drop-target', 'drop-invalid');
-                    });
-                    element.classList.remove('is-dragging');
-                });
-
-                const menuButton = document.createElement('button');
-                menuButton.type = 'button';
-                menuButton.className = 'board-card-menu-button';
-                const menuAction = type.id === 'system-usage'
-                    ? 'Card actions for'
-                    : type.timezoneCount || type.id === 'media' || type.id === 'url' || type.id === 'url-grid'
-                        ? 'Configure'
-                        : 'Change size of';
-                menuButton.setAttribute('aria-label', `${menuAction} ${type.label} card`);
-                menuButton.setAttribute('aria-expanded', String(openBoardMenuId === card.id));
-                menuButton.innerHTML = '<span aria-hidden="true">···</span>';
-                menuButton.addEventListener('click', event => {
-                    event.stopPropagation();
-                    openBoardCell = null;
-                    openBoardMenuId = openBoardMenuId === card.id ? null : card.id;
-                    renderBoard();
-                    if (openBoardMenuId === card.id) {
-                        boardGrid.querySelector('.board-card.menu-open .board-rss-feed-input, .board-card.menu-open .board-media-url-input, .board-card.menu-open .board-url-input, .board-card.menu-open .board-card-size-option:not(:disabled), .board-card.menu-open select')?.focus();
-                        fitBoardMenus();
-                    }
-                });
-                element.appendChild(menuButton);
-
-                if (type.timezoneCount) {
-                    card.timezones.forEach((timezone, index) => {
-                        const zone = document.createElement('div');
-                        zone.className = 'board-clock-zone';
-                        zone.dataset.timezoneIndex = String(index);
-                        const city = document.createElement('p');
-                        city.className = 'board-clock-city';
-                        city.textContent = getBoardTimezoneLabel(timezone).toUpperCase();
-                        const time = document.createElement('time');
-                        time.className = 'board-clock-time';
-                        time.dataset.timezone = timezone;
-                        time.textContent = formatBoardClockTime(timezone);
-                        zone.append(city, time);
-                        element.appendChild(zone);
-                    });
-                }
-
-                const weatherCurrent = card.typeId === 'weather'
-                    ? document.createElement('div')
-                    : null;
-                if (weatherCurrent) weatherCurrent.className = 'board-card-weather-current';
-
-                if (!type.timezoneCount && card.typeId !== 'rss' &&
-                    card.typeId !== 'calendar' && card.typeId !== 'media' &&
-                    card.typeId !== 'url' && card.typeId !== 'url-grid' &&
-                    card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage' &&
-                    card.typeId !== 'now-playing') {
-                    const heading = document.createElement('div');
-                    heading.className = 'board-card-heading';
-                    const title = document.createElement('h3');
-                    title.className = 'board-card-title';
-                    title.textContent = card.typeId === 'weather'
-                        ? (boardWeatherData?.city || 'Weather')
-                        : `Info card ${card.id}`;
-                    heading.appendChild(title);
-                    if (weatherCurrent) weatherCurrent.appendChild(heading);
-                    else element.appendChild(heading);
-                }
-
-                if (card.typeId === 'rss') {
-                    renderRSSCard(card, element);
-                } else if (card.typeId === 'calendar') {
-                    renderBoardCalendar(card, element);
-                } else if (card.typeId === 'media') {
-                    renderBoardMedia(card, element);
-                } else if (card.typeId === 'manga-shelf') {
-                    renderMangaShelf(card, element);
-                } else if (card.typeId === 'url') {
-                    renderBoardUrl(card, element);
-                } else if (card.typeId === 'url-grid') {
-                    renderBoardUrlGrid(card, element);
-                } else if (card.typeId === 'system-usage') {
-                    renderBoardSystemUsage(element);
-                } else if (card.typeId === 'now-playing') {
-                    renderNowPlaying(card, element);
-                } else if (card.typeId === 'weather') {
-                    const data = boardWeatherData;
-                    const label = document.createElement('p');
-                    label.className = 'board-card-label';
-                    label.textContent = data ? `${data.emoji} ${data.description}` : 'Fetching weather';
-                    weatherCurrent.appendChild(label);
-
-                    const value = document.createElement('p');
-                    value.className = 'board-card-value mono';
-                    value.textContent = data?.temperature ?? '--°';
-                    weatherCurrent.appendChild(value);
-
-                    const detail = document.createElement('p');
-                    detail.className = 'board-card-detail';
-                    detail.textContent = data
-                        ? `↑ ${data.high}° · ↓ ${data.low}° · ☔ ${data.precipitation}%`
-                        : 'Weather details unavailable';
-                    weatherCurrent.appendChild(detail);
-                    element.appendChild(weatherCurrent);
-
-                    if (card.width >= 2 && data?.forecast.length) {
-                        const forecast = document.createElement('div');
-                        forecast.className = 'board-card-weather-forecast';
-                        const forecastLimit = card.height === 1 ? 2 : 8;
-                        data.forecast.slice(0, forecastLimit).forEach(item => {
-                            const forecastItem = document.createElement('div');
-                            forecastItem.className = 'board-card-weather-forecast-item';
-                            const forecastTime = document.createElement('span');
-                            forecastTime.textContent = item.time;
-                            const forecastIcon = document.createElement('span');
-                            forecastIcon.className = 'forecast-icon';
-                            forecastIcon.textContent = item.icon;
-                            const forecastTemperature = document.createElement('span');
-                            forecastTemperature.className = 'forecast-temp';
-                            forecastTemperature.textContent = `${item.temperature}°`;
-                            forecastItem.append(forecastTime, forecastIcon, forecastTemperature);
-                            forecast.appendChild(forecastItem);
-                        });
-                        element.appendChild(forecast);
-                    }
-                } else if (!type.timezoneCount && card.typeId !== 'media' && card.typeId !== 'url') {
-                    const label = document.createElement('p');
-                    label.className = 'board-card-label';
-                    label.textContent = 'Placeholder';
-                    element.appendChild(label);
-
-                    const value = document.createElement('p');
-                    value.className = 'board-card-value mono';
-                    value.textContent = '—';
-                    element.appendChild(value);
-
-                    const detail = document.createElement('p');
-                    detail.className = 'board-card-detail';
-                    detail.textContent = 'Dummy card · content coming later';
-                    element.appendChild(detail);
-                }
-
-                if (openBoardMenuId === card.id) element.appendChild(createBoardMenu(card));
-                boardGrid.appendChild(element);
+                const element = buildBoardCardElement(card);
+                if (element) boardGrid.appendChild(element);
             });
 
             boardGrid.appendChild(boardDragPreview);
-            if (boardCards.some(card => card.typeId === 'system-usage')) {
+            if (activeBoardCards().some(card => card.typeId === 'system-usage')) {
                 updateBoardSystemUsage(boardSystemUsageData, boardSystemUsageError);
             }
-            if (boardCards.some(card => card.typeId === 'now-playing')) {
+            if (activeBoardCards().some(card => card.typeId === 'now-playing')) {
                 updateNowPlaying(nowPlayingData, nowPlayingError);
             }
             fitBoardMenus();
@@ -5078,7 +6112,7 @@
         // taller than the window, otherwise nudge it back inside the window edges.
         function fitBoardMenus() {
             const edge = 8;
-            boardGrid.querySelectorAll('.board-card-menu').forEach(menu => {
+            document.querySelectorAll('.board-card-menu').forEach(menu => {
                 menu.style.maxHeight = '';
                 menu.style.overflowY = '';
                 menu.style.transform = '';
@@ -5107,10 +6141,11 @@
         });
 
         function closeBoardMenu() {
-            if (openBoardMenuId === null && openBoardCell === null) return;
+            if (openBoardMenuId === null && openBoardCell === null && !panelAddMenuOpen) return;
             openBoardMenuId = null;
             openBoardCell = null;
-            renderBoard();
+            panelAddMenuOpen = false;
+            rerenderCards();
         }
 
         document.addEventListener('click', event => {
@@ -5120,7 +6155,9 @@
         });
 
         restoreBoardLayout();
-        renderBoard();
+        restorePanelLayout();
+        if (pagesMode) renderPanelPages();
+        else renderBoard();
         updateBoardClocks();
         setInterval(updateBoardClocks, 1000);
         fetchBoardSystemUsage();
@@ -5141,7 +6178,8 @@
             announcementTimes: ['12:00', '13:00', '14:54'],
             announcementSpeaker: 1,
             announcementReadRss: false,
-            announcementRssUrl: ''
+            announcementRssUrl: '',
+            pagesMode: false
         };
 
         const ANNOUNCEMENT_SPEAKER_IDS = [1, 47, 48, 49, 50, 14, 8, 118, 119, 120, 121];
@@ -5169,6 +6207,7 @@
                     announcementRssUrl: typeof savedSettings.announcementRssUrl === 'string'
                         ? savedSettings.announcementRssUrl
                         : DEFAULT_SETTINGS.announcementRssUrl,
+                    pagesMode: savedSettings.pagesMode === true,
                     announcementTimes: Array.isArray(savedSettings.announcementTimes)
                         ? [...new Set(savedSettings.announcementTimes.filter(time =>
                             typeof time === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)
@@ -5204,6 +6243,7 @@
         }
 
         function populateSettingsForm() {
+            document.getElementById('setting-pages-mode').checked = settings.pagesMode;
             document.getElementById('setting-tz').value = settings.timezone;
             document.getElementById('setting-city').value = settings.city;
             document.getElementById('setting-lat').value = settings.lat;
@@ -5479,9 +6519,14 @@
                 announcementTimes,
                 announcementSpeaker: Number(document.getElementById('setting-announcement-speaker').value),
                 announcementReadRss,
-                announcementRssUrl
+                announcementRssUrl,
+                pagesMode: document.getElementById('setting-pages-mode').checked
             };
             localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+            if (settings.pagesMode !== pagesMode) {
+                pagesMode = settings.pagesMode;
+                setLayoutMode();
+            }
             applySettings();
             announcementStatus.textContent = 'VOICEVOX announcements use the dashboard timezone.';
             announcementStatus.classList.remove('text-red-400');
@@ -5583,7 +6628,7 @@
             const timeShort = `${h}:${m}`;
             const timeFull = `${h}:${m}:${s}`;
 
-            if (heroClock) heroClock.textContent = timeFull;
+            if (heroClock) heroClock.textContent = pagesMode ? timeShort : timeFull;
             if (mainClock) mainClock.textContent = timeFull;
             if (miniClock) miniClock.textContent = timeShort;
 
@@ -5679,7 +6724,7 @@
                     precipitation: precipNow,
                     forecast: boardForecast
                 };
-                renderBoard();
+                rerenderCards();
 
             } catch (err) {
                 console.error("Weather error:", err);
@@ -5695,7 +6740,7 @@
                     precipitation: '--',
                     forecast: []
                 };
-                renderBoard();
+                rerenderCards();
             }
         }
         fetchWeather();
@@ -5882,10 +6927,10 @@
 
         function updateRSSBanners() {
             if (document.hidden) return;
-            boardCards.filter(card => card.typeId === 'rss').forEach(card => {
+            activeBoardCards().filter(card => card.typeId === 'rss').forEach(card => {
                 if (!card.rssItems?.length) return;
                 card.rssBannerIndex = (card.rssBannerIndex + 1) % card.rssItems.length;
-                const element = boardGrid.querySelector(`[data-card-id="${card.id}"]`);
+                const element = document.querySelector(`[data-card-id="${card.id}"]`);
                 const banner = element?.querySelector('.board-card-rss-banner');
                 const item = card.rssItems[card.rssBannerIndex];
                 if (element && banner) {
@@ -5927,8 +6972,8 @@
         }
 
         function synchronizeRSSBanners() {
-            boardCards.filter(card => card.typeId === 'rss').forEach(card => {
-                const element = boardGrid.querySelector(`[data-card-id="${card.id}"]`);
+            activeBoardCards().filter(card => card.typeId === 'rss').forEach(card => {
+                const element = document.querySelector(`[data-card-id="${card.id}"]`);
                 const banner = element?.querySelector('.board-card-rss-banner');
                 if (!element || !banner) return;
 
@@ -6064,12 +7109,12 @@
 
             card.rssUrl = feedUrl;
             card.rssMenuStatus = feedUrl ? 'Loading feed…' : 'Showing sample headlines';
-            saveBoardLayout();
+            saveActiveLayout();
             await loadRSSCard(card);
         }
 
         async function loadRSSCard(card) {
-            if (!boardCards.includes(card)) return;
+            if (!activeBoardCards().includes(card)) return;
             const requestToken = ++card.rssLoadToken;
             card.rssBannerIndex = 0;
             card.rssError = '';
@@ -6080,13 +7125,13 @@
                 card.rssFeedTitle = 'Latest Headlines';
                 card.rssLoading = false;
                 card.rssMenuStatus = 'Showing sample headlines';
-                renderBoard();
+                rerenderCards();
                 return;
             }
 
             card.rssLoading = true;
             card.rssFeedTitle = 'RSS';
-            renderBoard();
+            rerenderCards();
             try {
                 const response = await fetch(getRSSProxyUrl(card.rssUrl));
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -6107,28 +7152,27 @@
                     time: formatRSSDate(entry.querySelector('pubDate, published, updated')?.textContent)
                 }));
 
-                if (!boardCards.includes(card) || card.rssLoadToken !== requestToken) return;
+                if (!activeBoardCards().includes(card) || card.rssLoadToken !== requestToken) return;
                 card.rssItems = items;
                 card.rssFeedTitle = siteName;
                 card.rssMenuStatus = `Loaded ${items.length} headlines`;
             } catch (err) {
-                if (!boardCards.includes(card) || card.rssLoadToken !== requestToken) return;
+                if (!activeBoardCards().includes(card) || card.rssLoadToken !== requestToken) return;
                 console.error(`RSS error for card ${card.id}:`, err);
                 card.rssItems = [];
                 card.rssError = 'Could not load this feed.';
                 card.rssMenuStatus = card.rssError;
             }
             card.rssLoading = false;
-            renderBoard();
+            rerenderCards();
         }
 
-        boardCards.filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
+        startActiveCardLoaders();
         setInterval(() => {
-            boardCards.filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
+            activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
         }, 1800000);
-        boardCards.filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
         setInterval(() => {
-            boardCards.filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
+            activeBoardCards().filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
         }, 600000);
     </script>
 </body>
