@@ -53,7 +53,7 @@ def create_share(path, number):
         raise FileNotFoundError(f"Not a folder: {folder}")
 
     # Folders are usually already named "<series> <volume>", so only prepend the series when they are not.
-    label = volume["name"] if volume["name"].startswith(shelf["title"]) else f"{shelf['title']} {volume['name']}"
+    label = volume["name"] if shelf["title"].strip().lower() == "misc" or volume["name"].startswith(shelf["title"]) else f"{shelf['title']} {volume['name']}"
     download_name = _safe_filename(label) + DOWNLOAD_EXTENSION
     token = secrets.token_urlsafe(9)   # 12 characters keeps the QR code small
     now = time.time()

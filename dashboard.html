@@ -3597,6 +3597,16 @@
                 return;
             }
             if (isDotOnlyPage(currentPage)) return;
+            // Single panel mode: Left / Right step the manga shelf on the panel being shown.
+            if (pagesMode && !isEditableTarget && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey
+                && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                const shelf = getPageElements()[currentPage]?.querySelector('.board-manga-shelf');
+                if (shelf && typeof shelf.moveShelf === 'function') {
+                    e.preventDefault();
+                    shelf.moveShelf(e.key === 'ArrowRight' ? 1 : -1);
+                    return;
+                }
+            }
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 goToPage(Math.min(currentPage + 1, navMaxPage()));
@@ -4369,7 +4379,13 @@
 
         // Spines are rendered from the cover: the right-hand edge strip of the front cover (the spine side
         // of a right-to-left tankōbon) is stretched to spine width, shaded to look rounded, and numbered.
-        function drawMangaSpine(canvas, image, number, width, height) {
+        // The volume number shown at a spine's foot: shelves from older servers have no spine_number, so they
+        // fall back to the volume number; null (a "misc" book without a number) means none.
+        function getMangaSpineNumber(volume) {
+            return 'spine_number' in volume ? volume.spine_number : volume.number;
+        }
+
+        function drawMangaSpine(canvas, image, number, width, height, label = null) {
             const ratio = window.devicePixelRatio || 1;
             canvas.width = Math.max(1, Math.round(width * ratio));
             canvas.height = Math.max(1, Math.round(height * ratio));
@@ -4403,18 +4419,83 @@
             ctx.fillStyle = vignette;
             ctx.fillRect(0, 0, width, height);
 
-            if (width >= 12) {
+            const showText = width >= 12;
+            const hasTitle = showText && !!label;
+            const hasNumber = showText && number !== null && number !== undefined;
+            const padding = Math.max(4, height * 0.04);
+            let titleBottom = height - padding;
+
+            if (hasNumber) {
+                // Volume number: horizontal, in a dark box at the foot of the spine.
                 const labelHeight = Math.min(width * 1.1, height * 0.2);
-                const labelY = height - labelHeight - Math.max(4, height * 0.04);
+                const labelY = height - labelHeight - padding;
+                titleBottom = labelY - Math.max(3, height * 0.02);
                 ctx.fillStyle = 'rgba(0,0,0,0.55)';
                 ctx.beginPath();
                 ctx.roundRect(2, labelY, width - 4, labelHeight, 3);
                 ctx.fill();
                 ctx.fillStyle = '#fff';
-                ctx.font = `500 ${Math.max(8, Math.floor(width * (String(number).length > 2 ? 0.4 : 0.52)))}px 'JetBrains Mono', monospace`;
+                const numberText = String(number);
+                ctx.font = `500 ${Math.max(8, Math.floor(width * (numberText.length > 2 ? 0.4 : 0.52)))}px 'JetBrains Mono', monospace`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(String(number), width / 2, labelY + labelHeight / 2 + 0.5);
+                ctx.fillText(numberText, width / 2, labelY + labelHeight / 2 + 0.5);
+            }
+
+            if (hasTitle) {
+                // Title: 縦書き, one character per cell from the top down. Characters that are drawn sideways
+                // in vertical Japanese (ー, brackets, dashes, …) are turned a quarter clockwise.
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(0, 0, width, titleBottom + padding / 2);
+                const chars = Array.from(String(label)).filter(ch => ch !== '\u3000');
+                const sideways = new Set(Array.from('ー〜～―—–-−…‥（）()「」『』［］[]【】〈〉《》｛｝{}<>:：'));
+                const unitOf = ch => (ch === ' ' ? 0.5 : 1);
+                const available = Math.max(0, titleBottom - padding);
+                const minFont = 9;
+                const maxFont = Math.max(minFont, width * 0.62);
+                let glyphs = chars;
+                let units = glyphs.reduce((sum, ch) => sum + unitOf(ch), 0);
+                let fontSize = Math.min(maxFont, available / Math.max(units, 1));
+                if (fontSize < minFont) {
+                    fontSize = minFont;
+                    const fits = Math.max(1, Math.floor(available / minFont) - 1);
+                    const kept = [];
+                    let used = 0;
+                    for (const ch of glyphs) {
+                        if (used + unitOf(ch) > fits) break;
+                        kept.push(ch);
+                        used += unitOf(ch);
+                    }
+                    glyphs = kept.concat('…');
+                }
+                fontSize = Math.floor(fontSize);
+                ctx.font = `500 ${fontSize}px 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.lineJoin = 'round';
+                ctx.lineWidth = Math.max(2, fontSize * 0.18);
+                ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+                ctx.fillStyle = '#fff';
+                let y = padding;
+                for (const ch of glyphs) {
+                    const cell = fontSize * unitOf(ch);
+                    if (ch !== ' ') {
+                        const cx = width / 2;
+                        const cy = y + cell / 2;
+                        if (sideways.has(ch)) {
+                            ctx.save();
+                            ctx.translate(cx, cy);
+                            ctx.rotate(Math.PI / 2);
+                            ctx.strokeText(ch, 0, 0);
+                            ctx.fillText(ch, 0, 0);
+                            ctx.restore();
+                        } else {
+                            ctx.strokeText(ch, cx, cy);
+                            ctx.fillText(ch, cx, cy);
+                        }
+                    }
+                    y += cell;
+                }
             }
         }
 
@@ -4482,7 +4563,7 @@
             const items = volumes.map(volume => {
                 const item = document.createElement('div');
                 item.className = 'board-manga-item is-hidden';
-                item.title = `Volume ${volume.number}`;
+                item.title = volume.label ? volume.name : `Volume ${volume.number}`;
                 return { element: item, volume, spine: null, cover: null };
             });
             const displayOrder = items.map((_, position) => items[flip(position)]);
@@ -4592,12 +4673,12 @@
                 const canvas = document.createElement('canvas');
                 canvas.className = 'board-manga-face board-manga-face-spine';
                 canvas.draggable = false;
-                drawMangaSpine(canvas, null, entry.volume.number, spineWidth, coverHeight);
+                drawMangaSpine(canvas, null, getMangaSpineNumber(entry.volume), spineWidth, coverHeight, entry.volume.label);
                 entry.spine = canvas;
                 entry.element.prepend(canvas);
                 loadMangaCoverImage(entry.volume.cover).then(image => {
                     if (run !== layoutRun) return;
-                    drawMangaSpine(canvas, image, entry.volume.number, spineWidth, coverHeight);
+                    drawMangaSpine(canvas, image, getMangaSpineNumber(entry.volume), spineWidth, coverHeight, entry.volume.label);
                 }).catch(() => {});
             }
 
@@ -4609,7 +4690,7 @@
                 canvas.draggable = false;
                 canvas.style.width = `${coverWidth}px`;
                 canvas.setAttribute('role', 'img');
-                canvas.setAttribute('aria-label', `Volume ${entry.volume.number}`);
+                canvas.setAttribute('aria-label', entry.volume.label ? entry.volume.name : `Volume ${entry.volume.number}`);
                 entry.cover = canvas;
                 entry.element.appendChild(canvas);
                 loadMangaCoverImage(entry.volume.cover).then(image => {
@@ -4676,6 +4757,8 @@
                 if (!metrics) return;
                 goToPosition(flip(getSelectedIndex()) + step);
             }
+            // Lets the page's arrow-key handler drive this shelf (same as the on-screen arrows).
+            shelf.moveShelf = move;
 
             // Touch swipe: dragging left moves to the next position (like the right arrow),
             // dragging right moves to the previous one. Vertical drags are left to the browser.
@@ -4726,12 +4809,22 @@
                 const aspect = front.sw / coverImage.naturalHeight;
                 const coverWidth = Math.min(Math.round(height * aspect), width);
                 const coverHeight = Math.round(coverWidth / aspect);
-                const spineWidth = Math.max(8, Math.min(40, Math.round(coverWidth * 0.13)));
+                const nominalSpine = Math.max(8, Math.min(40, Math.round(coverWidth * 0.13)));
                 const room = width - coverWidth - gap;
-                const slots = Math.min(
-                    count - 1,
-                    Math.max(0, Math.floor((room + gap) / (spineWidth + gap)))
-                );
+                // When books are hidden, spread the leftover width over the spines (a little narrower to fit one
+                // more, or a little wider) so the shelf runs right to its edge instead of leaving a dead strip.
+                let spineWidth = nominalSpine;
+                let slots = Math.min(count - 1, Math.max(0, Math.floor((room + gap) / (nominalSpine + gap))));
+                if (room > 0 && slots < count - 1) {
+                    const fitExactly = number => Math.floor((room + gap) / number - gap);
+                    const slotsUp = slots + 1;
+                    if (slotsUp <= count - 1 && fitExactly(slotsUp) >= nominalSpine * 0.7) {
+                        slots = slotsUp;
+                        spineWidth = fitExactly(slotsUp);
+                    } else if (slots > 0) {
+                        spineWidth = Math.max(nominalSpine, fitExactly(slots));
+                    }
+                }
 
                 // Sizes changed, so redraw every face from scratch and skip the slide animation.
                 hideQr();
