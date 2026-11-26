@@ -2039,6 +2039,138 @@
             white-space: nowrap;
         }
 
+        /* RSS Image card: centre-cropped square picture beside the banner's text block, over a blurred copy of the picture. */
+        .board-card.board-card-rss-image {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .rss-image-view {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            border-radius: inherit;
+            container-type: size;
+            animation: rss-image-in 0.6s ease both;
+        }
+
+        @keyframes rss-image-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .rss-image-bg {
+            position: absolute;
+            inset: -12%;
+            width: 124%;
+            height: 124%;
+            object-fit: cover;
+            filter: blur(22px) brightness(0.55) saturate(1.15);
+        }
+
+        .rss-image-view::after {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, rgba(0,0,0,0.4), rgba(0,0,0,0.15));
+            content: '';
+        }
+
+        .rss-image-body {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            gap: 3.2cqw;
+            padding: 3.2cqw;
+        }
+
+        .rss-image-square {
+            display: block;
+            flex: none;
+            height: 100%;
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 3cqw;
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 1.2cqw 4cqw rgba(0,0,0,0.45);
+        }
+
+        .rss-image-picture {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .rss-image-body .board-card-rss-banner-copy {
+            align-self: stretch;
+            justify-content: space-between;
+        }
+
+        /* 2x1: picture on the left, text block on the right (the layout of the RSS feed banner). */
+        .board-card.board-card-rss-image.size-2x1 .rss-image-body .board-card-rss-banner-title {
+            -webkit-line-clamp: 3;
+        }
+
+        .board-card.board-card-rss-image.size-2x1 .rss-image-body .board-card-rss-qr {
+            flex-basis: 16cqw;
+            width: 16cqw;
+        }
+
+        /* 2x2: picture on top, text block underneath. */
+        .board-card.board-card-rss-image.size-2x2 .rss-image-body {
+            flex-direction: column;
+        }
+
+        .board-card.board-card-rss-image.size-2x2 .rss-image-square {
+            flex: 1 1 0;
+            height: auto;
+            min-height: 0;
+        }
+
+        .board-card.board-card-rss-image.size-2x2 .rss-image-body .board-card-rss-banner-copy {
+            flex: none;
+            align-self: stretch;
+            width: 100%;
+        }
+
+        .board-card.board-card-rss-image.size-2x2 .rss-image-body .board-card-rss-banner-title {
+            -webkit-line-clamp: 3;
+        }
+
+        .board-card.board-card-rss-image.size-2x2 .rss-image-body .board-card-rss-qr {
+            flex-basis: 17cqw;
+            width: 17cqw;
+        }
+
+        /* List rows with a square thumbnail on the left and the title/meta on the right. */
+        .board-card-rss .board-card-list li.has-thumb {
+            flex-direction: row;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .board-card-rss-item-thumb {
+            flex: none;
+            width: clamp(2.6rem, 4.2vw, 3.8rem);
+            aspect-ratio: 1;
+            border-radius: 0.4rem;
+            background: rgba(255,255,255,0.08);
+            object-fit: cover;
+        }
+
+        .board-card-rss-item-text {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            gap: 0.15rem;
+            min-width: 0;
+        }
+
         .board-card-rss {
             display: grid;
             grid-template-rows: minmax(0, 1fr);
@@ -3056,46 +3188,56 @@
             border-radius: 4.6cqw 4.6cqw 3cqw 3cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-copy {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-copy,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-copy {
             gap: 1.2cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-headline {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-headline,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-headline {
             gap: 1.4cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-feed-title {
+        .board-card.panel-card.board-card-rss .board-card-rss-feed-title,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-feed-title {
             font-size: 2.4cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-dot {
+        .board-card.panel-card.board-card-rss .board-card-rss-dot,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-dot {
             flex-basis: 1.4cqw;
             width: 1.4cqw;
             height: 1.4cqw;
             margin-top: 0.9cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-title {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-title,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-title {
             font-size: 3.3cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-summary {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-summary,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-summary {
             font-size: 2.7cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-date {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-date,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-date {
             font-size: 2.6cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-details {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-details,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-details {
             gap: 2cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-banner-text {
+        .board-card.panel-card.board-card-rss .board-card-rss-banner-text,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-banner-text {
             gap: 1cqw;
         }
 
-        .board-card.panel-card.board-card-rss .board-card-rss-qr {
+        .board-card.panel-card.board-card-rss .board-card-rss-qr,
+        .board-card.panel-card.board-card-rss-image .board-card-rss-qr {
             flex: 0 0 24cqw;
             width: 24cqw;
             padding: 0.7cqw;
@@ -3121,6 +3263,19 @@
 
         .board-card.panel-card.board-card-rss .board-card-rss-item-meta {
             font-size: 2.6cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-list li.has-thumb {
+            gap: 2.6cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-item-thumb {
+            width: 13cqw;
+            border-radius: 1.6cqw;
+        }
+
+        .board-card.panel-card.board-card-rss .board-card-rss-item-text {
+            gap: 0.6cqw;
         }
 
         .panel-add-cell {
@@ -3681,6 +3836,16 @@
                 ]
             },
             {
+                id: 'rss-image',
+                label: 'RSS Image',
+                width: 2,
+                height: 2,
+                allowedSizes: [
+                    { width: 2, height: 1 },
+                    { width: 2, height: 2 }
+                ]
+            },
+            {
                 id: 'calendar',
                 label: 'Calendar',
                 width: 1,
@@ -3759,11 +3924,14 @@
         let boardWeatherData = null;
         let rssBannerIntervalId = null;
         let legacyRSSUrl = '';
+        // How many feed items an RSS card keeps. The list shows every one of them (it scrolls);
+        // the banner rotates through them all.
+        const RSS_MAX_ITEMS = 50;
         const boardCards = [];
         const panelCards = [];
         const PANELS_STORAGE_KEY = 'dashboardPanels';
         // Panel types that are laid out for the full panel square (sized from its width) instead of being zoomed up.
-        const PANEL_FLUID_TYPES = ['weather', 'calendar', 'clock-1x1', 'clock-grid', 'system-usage', 'rss'];
+        const PANEL_FLUID_TYPES = ['weather', 'calendar', 'clock-1x1', 'clock-grid', 'system-usage', 'rss', 'rss-image'];
         let panelAddMenuOpen = false;
 
         // The cards that are on screen: the Glance board's, or the panel pages' in the panel pages layout.
@@ -5175,7 +5343,7 @@
                     return type.defaultTimezones[index];
                 });
             }
-            if (card.typeId === 'rss') initializeRSSCard(restoredCard, card.rssUrl);
+            if (isRSSType(card.typeId)) initializeRSSCard(restoredCard, card.rssUrl);
             if (card.typeId === 'calendar') initializeBoardCalendar(restoredCard);
             if (card.typeId === 'media') {
                 restoredCard.mediaUrl = typeof card.mediaUrl === 'string' ? card.mediaUrl : '';
@@ -5355,7 +5523,7 @@
                 card.urls = ['', '', '', ''];
                 card.images = ['', '', '', ''];
             }
-            if (type.id === 'rss') {
+            if (isRSSType(type.id)) {
                 initializeRSSCard(card, legacyRSSUrl);
                 legacyRSSUrl = '';
             }
@@ -5366,7 +5534,7 @@
             openBoardMenuId = null;
             panelAddMenuOpen = false;
             rerenderCards();
-            if (card.typeId === 'rss' && card.rssUrl) loadRSSCard(card);
+            if (isRSSType(card.typeId) && card.rssUrl) loadRSSCard(card);
             if (card.typeId === 'system-usage') fetchBoardSystemUsage();
             if (card.typeId === 'now-playing') fetchNowPlaying();
         }
@@ -5402,11 +5570,11 @@
         function createBoardMenu(card, { panel = false } = {}) {
             const menu = document.createElement('div');
             const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
-            menu.className = `board-card-menu${type?.timezoneCount ? ' clock-menu' : ''}${type?.id === 'rss' ? ' rss-menu' : ''}${type?.id === 'media' || type?.id === 'manga-shelf' ? ' media-menu' : ''}${type?.id === 'url' || type?.id === 'url-grid' ? ' url-menu' : ''}`;
+            menu.className = `board-card-menu${type?.timezoneCount ? ' clock-menu' : ''}${isRSSType(type?.id) ? ' rss-menu' : ''}${type?.id === 'media' || type?.id === 'manga-shelf' ? ' media-menu' : ''}${type?.id === 'url' || type?.id === 'url-grid' ? ' url-menu' : ''}`;
             menu.setAttribute('role', 'group');
             menu.setAttribute('aria-label', type?.timezoneCount
                 ? 'Clock settings'
-                : type?.id === 'rss' ? 'RSS feed and card size settings'
+                : isRSSType(type?.id) ? 'RSS feed and card size settings'
                     : type?.id === 'media' ? 'Media source and card size settings'
                         : type?.id === 'manga-shelf' ? 'Manga shelf folder, alignment and card size settings'
                         : type?.id === 'url' ? 'URL and card size settings'
@@ -5451,7 +5619,7 @@
                     menu.appendChild(setting);
                 });
             } else {
-                if (type?.id === 'rss') {
+                if (isRSSType(type?.id)) {
                     const setting = document.createElement('form');
                     setting.className = 'board-rss-feed-setting';
                     const label = document.createElement('label');
@@ -5894,7 +6062,7 @@
                 : null;
             if (weatherCurrent) weatherCurrent.className = 'board-card-weather-current';
 
-            if (!type.timezoneCount && card.typeId !== 'rss' &&
+            if (!type.timezoneCount && !isRSSType(card.typeId) &&
                 card.typeId !== 'calendar' && card.typeId !== 'media' &&
                 card.typeId !== 'url' && card.typeId !== 'url-grid' &&
                 card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage' &&
@@ -5913,6 +6081,8 @@
 
             if (card.typeId === 'rss') {
                 renderRSSCard(card, element);
+            } else if (card.typeId === 'rss-image') {
+                renderRSSImageCard(card, element);
             } else if (card.typeId === 'calendar') {
                 renderBoardCalendar(card, element);
             } else if (card.typeId === 'media') {
@@ -6092,7 +6262,7 @@
 
         function startActiveCardLoaders() {
             activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
-            activeBoardCards().filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
+            activeBoardCards().filter(card => isRSSType(card.typeId) && card.rssUrl).forEach(loadRSSCard);
         }
 
         // Called when the layout switch is saved in Settings. Stays on the Settings page.
@@ -6981,6 +7151,84 @@
             return copy;
         }
 
+        // Both RSS card types share one feed loader; only the way they draw the items differs.
+        function isRSSType(typeId) {
+            return typeId === 'rss' || typeId === 'rss-image';
+        }
+
+        // RSS Image: the current item's picture cropped square from its centre, beside the same text block as
+        // the RSS feed banner (feed label, headline, summary, QR code, date), over a blurred copy of the picture.
+        function createRSSImageView(card) {
+            const items = card.rssItems || [];
+            const itemIndex = card.rssBannerIndex % Math.max(items.length, 1);
+            const item = items[itemIndex];
+            const emptyMessage = card.rssLoading
+                ? 'Loading RSS feed…'
+                : card.rssError || 'No headlines available';
+            const view = document.createElement('div');
+            view.className = 'rss-image-view';
+
+            const loadImage = (className, src) => {
+                const image = document.createElement('img');
+                image.className = className;
+                image.src = src;
+                image.alt = '';
+                image.decoding = 'async';
+                image.referrerPolicy = 'no-referrer';
+                return image;
+            };
+
+            if (item?.thumbnail) {
+                const background = loadImage('rss-image-bg', item.thumbnail);
+                background.addEventListener('error', () => background.remove());
+                view.appendChild(background);
+            }
+
+            const body = document.createElement('div');
+            body.className = 'rss-image-body';
+            if (item?.thumbnail) {
+                const square = document.createElement(item.link ? 'a' : 'div');
+                square.className = 'rss-image-square';
+                if (item.link) {
+                    square.href = item.link;
+                    square.target = '_blank';
+                    square.rel = 'noopener noreferrer';
+                }
+                const picture = loadImage('rss-image-picture', item.thumbnail);
+                picture.addEventListener('error', () => square.remove());
+                square.appendChild(picture);
+                body.appendChild(square);
+            }
+            body.appendChild(createRSSBannerCopy(item, itemIndex, card.rssFeedTitle, emptyMessage));
+            view.appendChild(body);
+            return view;
+        }
+
+        function renderRSSImageCard(card, element) {
+            element.appendChild(createRSSImageView(card));
+        }
+
+        function createRSSListThumb(src) {
+            const makePlaceholder = () => {
+                const placeholder = document.createElement('span');
+                placeholder.className = 'board-card-rss-item-thumb is-empty';
+                placeholder.setAttribute('aria-hidden', 'true');
+                return placeholder;
+            };
+            if (!src) return makePlaceholder();
+
+            const image = document.createElement('img');
+            image.className = 'board-card-rss-item-thumb';
+            image.src = src;
+            image.alt = '';
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.referrerPolicy = 'no-referrer';
+            // Keep the square (and the row alignment) if the picture cannot be loaded.
+            image.addEventListener('error', () => image.replaceWith(makePlaceholder()));
+            return image;
+        }
+
         function renderRSSCard(card, element) {
             const items = card.rssItems || [];
             const itemIndex = card.rssBannerIndex % Math.max(items.length, 1);
@@ -6994,9 +7242,15 @@
 
             const list = document.createElement('ul');
             list.className = 'board-card-list';
+            // Thumbnails are shown for every row as soon as the feed has any; rows without one get an empty square.
+            const showThumbs = items.some(entry => entry.thumbnail);
             items.forEach(item => {
                 const listItem = document.createElement('li');
                 listItem.className = 'board-card-rss-list-item';
+                if (showThumbs) {
+                    listItem.classList.add('has-thumb');
+                    listItem.appendChild(createRSSListThumb(item.thumbnail));
+                }
                 const itemTitle = document.createElement('span');
                 itemTitle.className = 'board-card-rss-item-title';
                 if (item.link) {
@@ -7012,7 +7266,10 @@
                 const itemMeta = document.createElement('span');
                 itemMeta.className = 'board-card-rss-item-meta';
                 itemMeta.textContent = [item.site, item.time].filter(Boolean).join(' · ');
-                listItem.append(itemTitle, itemMeta);
+                const itemText = document.createElement('div');
+                itemText.className = 'board-card-rss-item-text';
+                itemText.append(itemTitle, itemMeta);
+                listItem.appendChild(itemText);
                 list.appendChild(listItem);
             });
             element.appendChild(list);
@@ -7020,10 +7277,14 @@
 
         function updateRSSBanners() {
             if (document.hidden) return;
-            activeBoardCards().filter(card => card.typeId === 'rss').forEach(card => {
+            activeBoardCards().filter(card => isRSSType(card.typeId)).forEach(card => {
                 if (!card.rssItems?.length) return;
                 card.rssBannerIndex = (card.rssBannerIndex + 1) % card.rssItems.length;
                 const element = document.querySelector(`[data-card-id="${card.id}"]`);
+                if (card.typeId === 'rss-image') {
+                    element?.querySelector('.rss-image-view')?.replaceWith(createRSSImageView(card));
+                    return;
+                }
                 const banner = element?.querySelector('.board-card-rss-banner');
                 const item = card.rssItems[card.rssBannerIndex];
                 if (element && banner) {
@@ -7065,8 +7326,12 @@
         }
 
         function synchronizeRSSBanners() {
-            activeBoardCards().filter(card => card.typeId === 'rss').forEach(card => {
+            activeBoardCards().filter(card => isRSSType(card.typeId)).forEach(card => {
                 const element = document.querySelector(`[data-card-id="${card.id}"]`);
+                if (card.typeId === 'rss-image') {
+                    element?.querySelector('.rss-image-view')?.replaceWith(createRSSImageView(card));
+                    return;
+                }
                 const banner = element?.querySelector('.board-card-rss-banner');
                 if (!element || !banner) return;
 
@@ -7232,7 +7497,7 @@
                 const xml = new DOMParser().parseFromString(text, 'application/xml');
                 if (xml.querySelector('parsererror')) throw new Error('Feed parse error');
 
-                const entries = [...xml.querySelectorAll('item, entry')].slice(0, 8);
+                const entries = [...xml.querySelectorAll('item, entry')].slice(0, RSS_MAX_ITEMS);
                 if (entries.length === 0) throw new Error('No items in feed');
 
                 const siteName = xml.querySelector('channel > title, feed > title')?.textContent || 'RSS';
@@ -7265,7 +7530,7 @@
             activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
         }, 1800000);
         setInterval(() => {
-            activeBoardCards().filter(card => card.typeId === 'rss' && card.rssUrl).forEach(loadRSSCard);
+            activeBoardCards().filter(card => isRSSType(card.typeId) && card.rssUrl).forEach(loadRSSCard);
         }, 600000);
     </script>
 </body>

@@ -8,7 +8,7 @@ Also serves dashboard.html at the server root.
 Generates QR-code PNGs for RSS entry links.
 
 Run:
-    pip install fastapi uvicorn httpx "qrcode[pil]" psutil --break-system-packages
+    pip install fastapi uvicorn httpx "qrcode[pil]" psutil playwright --break-system-packages
     uvicorn rss_proxy:app --host 0.0.0.0 --port 8787
 
 Open the dashboard at:
@@ -18,12 +18,14 @@ In the dashboard's RSS URL setting, enter the feed's URL directly:
     https://feeds.bbci.co.uk/news/world/rss.xml
 """
 
+import asyncio
 import html
 import ipaddress
 import mimetypes
 import queue
 import random
 import re
+import threading
 import time
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
@@ -63,8 +65,15 @@ _cache: dict[str, tuple[float, bytes, str]] = {}
 CACHE_SECONDS = 300
 
 HEADERS = {
-    # Some feed hosts reject requests with no/odd User-Agent.
-    "User-Agent": "Mozilla/5.0 (compatible; AmbientDashboardRSSProxy/1.0)"
+    # Some feed hosts reject requests with no/odd User-Agent, so identify as an
+    # ordinary browser and send the headers a feed reader would normally send.
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/rdf+xml, application/atom+xml, "
+              "application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5",
+    "Accept-Language": "ja,en;q=0.8",
 }
 
 
@@ -107,6 +116,71 @@ def _rss_entry_text(feed_content: bytes) -> list[str]:
     return readings
 
 
+# Hosts that put bot detection in front of their feeds answer plain HTTP clients with
+# one of these. When that happens the feed is fetched again through a real browser.
+BROWSER_FALLBACK_STATUSES = {403, 429, 503}
+_browser_lock = threading.Lock()  # one browser at a time is plenty for a dashboard
+
+
+def _fetch_with_browser(url: str) -> bytes:
+    """Fetch a feed through a real headless browser (Playwright).
+
+    Needs:  pip install playwright --break-system-packages
+    Uses the Edge that ships with Windows, so no `playwright install` is required;
+    falls back to Playwright's own Chromium if Edge cannot be launched.
+    """
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except ImportError as error:
+        raise HTTPException(
+            status_code=502,
+            detail="This feed blocks plain requests and Playwright is not installed (pip install playwright)",
+        ) from error
+
+    with _browser_lock:
+        try:
+            with sync_playwright() as playwright:
+                try:
+                    browser = playwright.chromium.launch(channel="msedge", headless=True)
+                except PlaywrightError:
+                    browser = playwright.chromium.launch(headless=True)
+                try:
+                    context = browser.new_context(
+                        user_agent=HEADERS["User-Agent"],
+                        locale="ja-JP",
+                        extra_http_headers={"Accept-Language": HEADERS["Accept-Language"]},
+                    )
+                    page = context.new_page()
+                    # Open the site itself first (so any browser check can clear and the session
+                    # gets its cookies), then read the feed from inside that page. Reading it in
+                    # the page also avoids Chromium turning feed MIME types into file downloads.
+                    parsed = urlparse(url)
+                    home = page.goto(f"{parsed.scheme}://{parsed.netloc}/", wait_until="domcontentloaded", timeout=20000)
+                    if home is None or not home.ok:
+                        page.wait_for_timeout(6000)  # give a JavaScript check time to clear itself
+                    values = page.evaluate(
+                        """async (feedUrl) => {
+                            const r = await fetch(feedUrl, { credentials: 'include' });
+                            if (!r.ok) return null;
+                            return Array.from(new Uint8Array(await r.arrayBuffer()));
+                        }""",
+                        url,
+                    )
+                    body = bytes(values) if values else b""
+                finally:
+                    browser.close()
+        except PlaywrightError as error:
+            raise HTTPException(status_code=502, detail=f"Browser fetch failed: {error}") from error
+
+    if not body or b"<html" in body[:1000].lower():
+        raise HTTPException(
+            status_code=502,
+            detail="The feed host blocked the browser as well (challenge page instead of a feed)",
+        )
+    return body
+
+
 def _fetch_rss_content(url: str) -> bytes:
     parsed_url = urlparse(url)
     if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname or parsed_url.username or parsed_url.password:
@@ -117,19 +191,24 @@ def _fetch_rss_content(url: str) -> bytes:
     if cached and now - cached[0] < CACHE_SECONDS:
         return cached[1]
 
+    content_type = "application/xml"
     try:
         with httpx.Client(timeout=10, follow_redirects=True) as client:
             response = client.get(url, headers=HEADERS)
             response.raise_for_status()
+        content = response.content
+        content_type = response.headers.get("content-type", "application/xml")
     except httpx.TimeoutException as error:
         raise HTTPException(status_code=504, detail="RSS feed timed out") from error
     except httpx.HTTPStatusError as error:
-        raise HTTPException(status_code=error.response.status_code, detail="RSS feed returned an error") from error
+        if error.response.status_code not in BROWSER_FALLBACK_STATUSES:
+            raise HTTPException(status_code=error.response.status_code, detail="RSS feed returned an error") from error
+        content = _fetch_with_browser(url)
     except httpx.RequestError as error:
         raise HTTPException(status_code=502, detail=f"Could not reach RSS feed: {error}") from error
 
-    _cache[url] = (now, response.content, response.headers.get("content-type", "application/xml"))
-    return response.content
+    _cache[url] = (now, content, content_type)
+    return content
 
 
 @app.get("/", include_in_schema=False)
@@ -276,17 +355,21 @@ async def get_rss(url: str = Query(..., description="Feed URL to fetch")):
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             resp = await client.get(url, headers=HEADERS)
             resp.raise_for_status()
+        content = resp.content
+        content_type = resp.headers.get("content-type", "application/xml")
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Upstream feed timed out")
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="Upstream feed returned an error")
+        if e.response.status_code not in BROWSER_FALLBACK_STATUSES:
+            raise HTTPException(status_code=e.response.status_code, detail="Upstream feed returned an error")
+        content = await asyncio.to_thread(_fetch_with_browser, url)
+        content_type = "application/xml"
     except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"Could not reach feed: {e}")
 
-    content_type = resp.headers.get("content-type", "application/xml")
-    _cache[url] = (now, resp.content, content_type)
+    _cache[url] = (now, content, content_type)
 
-    return Response(content=resp.content, media_type=content_type)
+    return Response(content=content, media_type=content_type)
 
 
 @app.get("/qr", include_in_schema=False)
