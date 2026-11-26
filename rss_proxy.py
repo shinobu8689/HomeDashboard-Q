@@ -9,6 +9,7 @@ Generates QR-code PNGs for RSS entry links.
 
 Run:
     pip install fastapi uvicorn httpx "qrcode[pil]" psutil playwright --break-system-packages
+    (Pillow comes with qrcode[pil]; it is also used for the picture cache)
     uvicorn rss_proxy:app --host 0.0.0.0 --port 8787
 
 Open the dashboard at:
@@ -19,18 +20,22 @@ In the dashboard's RSS URL setting, enter the feed's URL directly:
 """
 
 import asyncio
+import hashlib
 import html
+import io
 import ipaddress
 import mimetypes
+import os
 import queue
 import random
 import re
+import socket
 import threading
 import time
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -370,6 +375,195 @@ async def get_rss(url: str = Query(..., description="Feed URL to fetch")):
     _cache[url] = (now, content, content_type)
 
     return Response(content=content, media_type=content_type)
+
+
+# ---------------------------------------------------------------------------
+# Article pictures (used by the dashboard's "RSS (Figsoku)" card)
+# ---------------------------------------------------------------------------
+# The figure pictures on a fig速 article page are named like fig_20260122_1769050841810.jpg.
+# The same file with a size suffix (fig_20260122_1769050841810-200x150.jpg) is a thumbnail and is
+# not matched. If the site ever changes its file naming, this is the one line to edit.
+ARTICLE_IMAGE_NAME = re.compile(r"/fig_\d{8}_\d+\.(?:jpe?g|png|webp|gif)$", re.IGNORECASE)
+_ARTICLE_URL_ATTRIBUTE = re.compile(
+    r"""(?:src|href|data-src|data-lazy-src|data-original|data-full-url|srcset|data-srcset)\s*=\s*["']([^"']+)["']""",
+    re.IGNORECASE,
+)
+_article_cache: dict[str, tuple[float, list[str]]] = {}
+ARTICLE_CACHE_SECONDS = 600
+MAX_ARTICLE_CHARS = 3_000_000
+
+
+def _assert_public_http_url(url: str) -> None:
+    """Only fetch ordinary public web pages; never the machine itself or the local network."""
+    parsed_url = urlparse(url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname or parsed_url.username or parsed_url.password:
+        raise HTTPException(status_code=400, detail="Article URL must be a valid HTTP or HTTPS URL")
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(parsed_url.hostname, None)}
+    except socket.gaierror as error:
+        raise HTTPException(status_code=502, detail="Could not resolve the article host") from error
+    for address in addresses:
+        ip = ipaddress.ip_address(address.split("%")[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise HTTPException(status_code=400, detail="Article URL must point to a public host")
+
+
+# The side column (<aside>) carries ads whose pictures use the same fig_… file names as the article
+# photos, so it is cut out of the page before looking for pictures.
+_INNERMOST_ASIDE = re.compile(r"<aside\b(?:(?!<aside\b).)*?</aside\s*>", re.IGNORECASE | re.DOTALL)
+_SIDE_COLUMN_COMMENTS = re.compile(r"<!--\s*サイドカラムここから\s*-->.*?<!--\s*サイドカラムここまで\s*-->", re.DOTALL)
+
+
+def _strip_side_column(page_html: str) -> str:
+    page_html = _SIDE_COLUMN_COMMENTS.sub("", page_html)
+    for _ in range(20):  # innermost first, so nested <aside> elements are handled too
+        stripped = _INNERMOST_ASIDE.sub("", page_html)
+        if stripped == page_html:
+            break
+        page_html = stripped
+    return page_html
+
+
+def _extract_article_images(page_html: str, base_url: str) -> list[str]:
+    """Every figure picture in the article (not the side column), in page order, without duplicates or thumbnails."""
+    page_html = _strip_side_column(page_html).replace("\\/", "/")
+    seen: set[str] = set()
+    images: list[str] = []
+    for match in _ARTICLE_URL_ATTRIBUTE.finditer(page_html):
+        for candidate in re.split(r"[\s,]+", match.group(1).strip()):
+            if not candidate:
+                continue
+            absolute = urljoin(base_url, html.unescape(candidate))
+            parsed = urlparse(absolute)
+            if parsed.scheme not in {"http", "https"} or not ARTICLE_IMAGE_NAME.search(parsed.path):
+                continue
+            key = f"{parsed.netloc}{parsed.path}"
+            if key in seen:
+                continue
+            seen.add(key)
+            images.append(parsed._replace(fragment="").geturl())
+    return images
+
+
+@app.get("/article-images")
+async def get_article_images(url: str = Query(..., min_length=1, max_length=2048, description="Article page URL")):
+    now = time.time()
+    cached = _article_cache.get(url)
+    if cached and now - cached[0] < ARTICLE_CACHE_SECONDS:
+        return {"images": cached[1]}
+
+    await asyncio.to_thread(_assert_public_http_url, url)
+    headers = {**HEADERS, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"}
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Article page timed out")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail="Article page returned an error")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach article page: {e}")
+
+    images = _extract_article_images(resp.text[:MAX_ARTICLE_CHARS], str(resp.url))
+    if len(_article_cache) >= 200:
+        for stale_url in sorted(_article_cache, key=lambda key: _article_cache[key][0])[:50]:
+            del _article_cache[stale_url]
+    _article_cache[url] = (now, images)
+    return {"images": images}
+
+
+# ---------------------------------------------------------------------------
+# Picture cache (used by the "RSS (Figsoku)" card)
+# ---------------------------------------------------------------------------
+# Each picture is downloaded once, shrunk and kept on disk next to this script (folder: image_cache),
+# then served from there. That makes the carousel instant, spares the original site repeated
+# downloads and avoids hotlink blocking. Oldest files are deleted once the folder passes the limit.
+IMAGE_CACHE_DIR = Path(__file__).with_name("image_cache")
+IMAGE_CACHE_MAX_BYTES = 500 * 1024 * 1024
+IMAGE_MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+IMAGE_MAX_SIDE = 1200  # longest side kept, in pixels; the cards show the pictures at about 200-500 px
+IMAGE_CACHE_CONTROL = {"Cache-Control": "public, max-age=604800"}
+_image_locks: dict[str, asyncio.Lock] = {}
+
+
+def _image_cache_path(url: str) -> Path:
+    return IMAGE_CACHE_DIR / f"{hashlib.sha256(url.encode('utf-8')).hexdigest()}.jpg"
+
+
+def _prune_image_cache() -> None:
+    try:
+        files = sorted(IMAGE_CACHE_DIR.glob("*.jpg"), key=lambda file: file.stat().st_mtime)
+        total = sum(file.stat().st_size for file in files)
+        while files and total > IMAGE_CACHE_MAX_BYTES:
+            oldest = files.pop(0)
+            total -= oldest.stat().st_size
+            oldest.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _store_cached_image(data: bytes, path: Path) -> None:
+    from PIL import Image, ImageOps
+
+    with Image.open(io.BytesIO(data)) as opened:
+        image = ImageOps.exif_transpose(opened)
+        image.thumbnail((IMAGE_MAX_SIDE, IMAGE_MAX_SIDE))
+        if image.mode in {"RGBA", "LA", "P"}:
+            rgba = image.convert("RGBA")
+            image = Image.new("RGB", rgba.size, (255, 255, 255))
+            image.paste(rgba, mask=rgba.getchannel("A"))
+        else:
+            image = image.convert("RGB")
+        IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        image.save(temporary, "JPEG", quality=88, optimize=True)
+    os.replace(temporary, path)
+    _prune_image_cache()
+
+
+@app.get("/cached-image")
+async def get_cached_image(url: str = Query(..., min_length=1, max_length=2048, description="Picture URL")):
+    path = _image_cache_path(url)
+    if path.exists():
+        os.utime(path, None)  # recently used files are the last to be pruned
+        return FileResponse(path, media_type="image/jpeg", headers=IMAGE_CACHE_CONTROL)
+
+    lock = _image_locks.setdefault(url, asyncio.Lock())
+    async with lock:
+        if not path.exists():
+            await asyncio.to_thread(_assert_public_http_url, url)
+            origin = urlparse(url)
+            headers = {
+                **HEADERS,
+                "Accept": "image/avif,image/webp,image/*,*/*;q=0.5",
+                "Referer": f"{origin.scheme}://{origin.netloc}/",
+            }
+            chunks: list[bytes] = []
+            size = 0
+            try:
+                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                    async with client.stream("GET", url, headers=headers) as resp:
+                        resp.raise_for_status()
+                        if not resp.headers.get("content-type", "").lower().startswith("image/"):
+                            raise HTTPException(status_code=415, detail="URL is not a picture")
+                        async for chunk in resp.aiter_bytes():
+                            size += len(chunk)
+                            if size > IMAGE_MAX_DOWNLOAD_BYTES:
+                                raise HTTPException(status_code=413, detail="Picture is too large")
+                            chunks.append(chunk)
+            except httpx.TimeoutException:
+                raise HTTPException(status_code=504, detail="Picture download timed out")
+            except httpx.HTTPStatusError as e:
+                raise HTTPException(status_code=e.response.status_code, detail="Picture host returned an error")
+            except httpx.RequestError as e:
+                raise HTTPException(status_code=502, detail=f"Could not reach picture host: {e}")
+            try:
+                await asyncio.to_thread(_store_cached_image, b"".join(chunks), path)
+            except Exception as error:
+                raise HTTPException(status_code=422, detail=f"Could not read the picture: {error}") from error
+    _image_locks.pop(url, None)
+    return FileResponse(path, media_type="image/jpeg", headers=IMAGE_CACHE_CONTROL)
 
 
 @app.get("/qr", include_in_schema=False)

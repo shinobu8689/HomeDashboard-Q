@@ -2068,6 +2068,16 @@
             filter: blur(22px) brightness(0.55) saturate(1.15);
         }
 
+        .rss-image-picture.is-incoming,
+        .rss-image-bg.is-incoming {
+            animation: rss-image-in 0.6s ease both;
+        }
+
+        .rss-image-picture.is-incoming {
+            position: absolute;
+            inset: 0;
+        }
+
         .rss-image-view::after {
             position: absolute;
             inset: 0;
@@ -2088,6 +2098,7 @@
         }
 
         .rss-image-square {
+            position: relative;
             display: block;
             flex: none;
             height: 100%;
@@ -3846,6 +3857,16 @@
                 ]
             },
             {
+                id: 'rss-figsoku',
+                label: 'RSS (Figsoku)',
+                width: 2,
+                height: 2,
+                allowedSizes: [
+                    { width: 2, height: 1 },
+                    { width: 2, height: 2 }
+                ]
+            },
+            {
                 id: 'calendar',
                 label: 'Calendar',
                 width: 1,
@@ -3927,11 +3948,14 @@
         // How many feed items an RSS card keeps. The list shows every one of them (it scrolls);
         // the banner rotates through them all.
         const RSS_MAX_ITEMS = 50;
+        // RSS (Figsoku): how long each picture of an article stays on screen.
+        const FIGSOKU_IMAGE_MS = 3000;
+        let figsokuIntervalId = null;
         const boardCards = [];
         const panelCards = [];
         const PANELS_STORAGE_KEY = 'dashboardPanels';
         // Panel types that are laid out for the full panel square (sized from its width) instead of being zoomed up.
-        const PANEL_FLUID_TYPES = ['weather', 'calendar', 'clock-1x1', 'clock-grid', 'system-usage', 'rss', 'rss-image'];
+        const PANEL_FLUID_TYPES = ['weather', 'calendar', 'clock-1x1', 'clock-grid', 'system-usage', 'rss', 'rss-image', 'rss-figsoku'];
         let panelAddMenuOpen = false;
 
         // The cards that are on screen: the Glance board's, or the panel pages' in the panel pages layout.
@@ -5979,7 +6003,7 @@
             }
 
             const element = document.createElement('article');
-            element.className = `board-card board-card-${type.id}${openBoardMenuId === card.id ? ' menu-open' : ''}${panel ? ` panel-card${PANEL_FLUID_TYPES.includes(type.id) ? ' panel-fluid' : ''}` : ''}`;
+            element.className = `board-card board-card-${type.id}${type.id === 'rss-figsoku' ? ' board-card-rss-image' : ''}${openBoardMenuId === card.id ? ' menu-open' : ''}${panel ? ` panel-card${PANEL_FLUID_TYPES.includes(type.id) ? ' panel-fluid' : ''}` : ''}`;
             if (type.timezoneCount) element.classList.add('board-card-clock');
             element.classList.add(`size-${card.width}x${card.height}`);
             if (!panel) {
@@ -6081,7 +6105,7 @@
 
             if (card.typeId === 'rss') {
                 renderRSSCard(card, element);
-            } else if (card.typeId === 'rss-image') {
+            } else if (card.typeId === 'rss-image' || card.typeId === 'rss-figsoku') {
                 renderRSSImageCard(card, element);
             } else if (card.typeId === 'calendar') {
                 renderBoardCalendar(card, element);
@@ -7153,7 +7177,7 @@
 
         // Both RSS card types share one feed loader; only the way they draw the items differs.
         function isRSSType(typeId) {
-            return typeId === 'rss' || typeId === 'rss-image';
+            return typeId === 'rss' || typeId === 'rss-image' || typeId === 'rss-figsoku';
         }
 
         // RSS Image: the current item's picture cropped square from its centre, beside the same text block as
@@ -7165,28 +7189,39 @@
             const emptyMessage = card.rssLoading
                 ? 'Loading RSS feed…'
                 : card.rssError || 'No headlines available';
+            // RSS (Figsoku) pictures come through the proxy's picture cache (the original address is the fallback).
+            const originalUrl = card.typeId === 'rss-figsoku' ? currentFigsokuImage(card, item) : item?.thumbnail;
+            const imageUrl = card.typeId === 'rss-figsoku' ? getCachedImageUrl(originalUrl) : originalUrl;
             const view = document.createElement('div');
             view.className = 'rss-image-view';
 
-            const loadImage = (className, src) => {
+            const loadImage = (className, src, onFail) => {
                 const image = document.createElement('img');
+                let triedOriginal = src === originalUrl;
                 image.className = className;
                 image.src = src;
                 image.alt = '';
                 image.decoding = 'async';
                 image.referrerPolicy = 'no-referrer';
+                image.addEventListener('error', () => {
+                    if (!triedOriginal && originalUrl) {
+                        triedOriginal = true;
+                        image.src = originalUrl; // the cache could not serve it: try the site directly
+                        return;
+                    }
+                    onFail();
+                });
                 return image;
             };
 
-            if (item?.thumbnail) {
-                const background = loadImage('rss-image-bg', item.thumbnail);
-                background.addEventListener('error', () => background.remove());
+            if (imageUrl) {
+                const background = loadImage('rss-image-bg', imageUrl, () => background.remove());
                 view.appendChild(background);
             }
 
             const body = document.createElement('div');
             body.className = 'rss-image-body';
-            if (item?.thumbnail) {
+            if (imageUrl) {
                 const square = document.createElement(item.link ? 'a' : 'div');
                 square.className = 'rss-image-square';
                 if (item.link) {
@@ -7194,8 +7229,7 @@
                     square.target = '_blank';
                     square.rel = 'noopener noreferrer';
                 }
-                const picture = loadImage('rss-image-picture', item.thumbnail);
-                picture.addEventListener('error', () => square.remove());
+                const picture = loadImage('rss-image-picture', imageUrl, () => square.remove());
                 square.appendChild(picture);
                 body.appendChild(square);
             }
@@ -7205,7 +7239,158 @@
         }
 
         function renderRSSImageCard(card, element) {
+            if (card.typeId === 'rss-figsoku') prepareFigsokuCard(card);
             element.appendChild(createRSSImageView(card));
+        }
+
+        // ---- RSS (Figsoku): each feed item's article page is read for its figure pictures, which then
+        // ---- take turns (FIGSOKU_IMAGE_MS each, centre-cropped square) before the card moves to the next article.
+        function getCachedImageUrl(src) {
+            if (!src || src.startsWith('data:')) return src;
+            const proxyOrigin = window.location.protocol === 'file:'
+                ? 'http://127.0.0.1:8787'
+                : window.location.origin;
+            const proxyUrl = new URL('/cached-image', proxyOrigin);
+            proxyUrl.searchParams.set('url', src);
+            return proxyUrl.toString();
+        }
+
+        function getArticleImagesProxyUrl(articleUrl) {
+            const proxyOrigin = window.location.protocol === 'file:'
+                ? 'http://127.0.0.1:8787'
+                : window.location.origin;
+            const proxyUrl = new URL('/article-images', proxyOrigin);
+            proxyUrl.searchParams.set('url', articleUrl);
+            return proxyUrl.toString();
+        }
+
+        // Pictures found on the article page; until they arrive (or if there are none) the feed's own thumbnail stands in.
+        function getFigsokuImages(card, item) {
+            const found = card.figArticles?.[item?.link]?.images;
+            if (found?.length) return found;
+            return item?.thumbnail ? [item.thumbnail] : [];
+        }
+
+        function currentFigsokuImage(card, item) {
+            const images = getFigsokuImages(card, item);
+            return images.length ? images[(card.figImageIndex || 0) % images.length] : '';
+        }
+
+        function loadFigsokuArticleImages(card, item) {
+            if (!item?.link) return;
+            card.figArticles = card.figArticles || {};
+            if (card.figArticles[item.link]) return; // one request per article while it is loading or loaded
+            const state = { status: 'loading', images: [] };
+            card.figArticles[item.link] = state;
+            fetch(getArticleImagesProxyUrl(item.link))
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    state.images = Array.isArray(data.images) ? data.images : [];
+                    state.status = 'ready';
+                    // Fetch every picture into the proxy's cache and the browser's now, so the carousel never waits.
+                    state.images.forEach(src => { new Image().src = getCachedImageUrl(src); });
+                })
+                .catch(error => {
+                    state.status = 'failed';
+                    console.error('Could not read pictures from the article page.', item.link, error);
+                    setTimeout(() => { if (card.figArticles[item.link] === state) delete card.figArticles[item.link]; }, 60000);
+                })
+                .finally(() => {
+                    const items = card.rssItems || [];
+                    const shown = items[card.rssBannerIndex % Math.max(items.length, 1)];
+                    if (shown?.link !== item.link || !state.images.length) return;
+                    // The article on screen just got its pictures: start its carousel from the first one.
+                    card.figImageIndex = 0;
+                    const element = document.querySelector(`[data-card-id="${card.id}"]`);
+                    if (element) crossfadeRSSImageView(element, createRSSImageView(card));
+                });
+        }
+
+        function prepareFigsokuCard(card) {
+            const items = card.rssItems || [];
+            if (!items.length) return;
+            const index = card.rssBannerIndex % items.length;
+            loadFigsokuArticleImages(card, items[index]);
+            loadFigsokuArticleImages(card, items[(index + 1) % items.length]); // next article is ready before it is needed
+        }
+
+        // Cross-dissolve: the new picture is laid over the old one and fades in while the old one stays fully
+        // visible underneath, so the card never shows the bare dark background between two pictures.
+        function swapFigsokuPicture(card, src) {
+            const element = document.querySelector(`[data-card-id="${card.id}"]`);
+            const currentPicture = [...(element?.querySelectorAll('.rss-image-picture') || [])].pop();
+            if (!currentPicture) return;
+            const currentBackground = [...element.querySelectorAll('.rss-image-bg')].pop();
+            const preload = new Image();
+            let shownSrc = getCachedImageUrl(src);
+            preload.referrerPolicy = 'no-referrer';
+            preload.onload = () => {
+                [currentPicture, currentBackground].forEach(previous => {
+                    if (!previous?.isConnected) return;
+                    const incoming = previous.cloneNode(false);
+                    incoming.src = shownSrc;
+                    incoming.classList.add('is-incoming');
+                    previous.after(incoming);
+                    const finish = () => {
+                        previous.remove();
+                        incoming.classList.remove('is-incoming');
+                    };
+                    incoming.addEventListener('animationend', finish, { once: true });
+                    setTimeout(finish, 900); // safety net if the animation event never fires
+                });
+            };
+            preload.onerror = () => {
+                if (shownSrc === src) return; // keep the current picture; the next tick moves on
+                shownSrc = src; // the cache could not serve it: try the site directly
+                preload.src = src;
+            };
+            preload.src = shownSrc;
+        }
+
+        // Whole-card version of the same idea (next article): the new view fades in over the old one.
+        function crossfadeRSSImageView(element, nextView) {
+            const previous = [...element.querySelectorAll('.rss-image-view')];
+            if (!previous.length) {
+                element.appendChild(nextView);
+                return;
+            }
+            previous[previous.length - 1].after(nextView);
+            const finish = () => previous.forEach(view => view.remove());
+            const onEnd = event => {
+                if (event.target !== nextView) return;
+                nextView.removeEventListener('animationend', onEnd);
+                finish();
+            };
+            nextView.addEventListener('animationend', onEnd);
+            setTimeout(finish, 900); // safety net if the animation event never fires
+        }
+
+        function advanceFigsokuCards() {
+            if (document.hidden) return;
+            activeBoardCards().filter(card => card.typeId === 'rss-figsoku' && card.rssItems?.length).forEach(card => {
+                const items = card.rssItems;
+                const item = items[card.rssBannerIndex % items.length];
+                // Give a still-loading article up to two extra ticks to deliver its pictures.
+                if (card.figArticles?.[item.link]?.status === 'loading' && (card.figWait = (card.figWait || 0) + 1) <= 2) return;
+                card.figWait = 0;
+
+                const images = getFigsokuImages(card, item);
+                card.figImageIndex = (card.figImageIndex || 0) + 1;
+                if (card.figImageIndex < images.length) {
+                    swapFigsokuPicture(card, images[card.figImageIndex]);
+                    return;
+                }
+
+                // That was the last picture: on to the next article.
+                card.rssBannerIndex = (card.rssBannerIndex + 1) % items.length;
+                card.figImageIndex = 0;
+                prepareFigsokuCard(card);
+                const element = document.querySelector(`[data-card-id="${card.id}"]`);
+                if (element) crossfadeRSSImageView(element, createRSSImageView(card));
+            });
         }
 
         function createRSSListThumb(src) {
@@ -7278,6 +7463,7 @@
         function updateRSSBanners() {
             if (document.hidden) return;
             activeBoardCards().filter(card => isRSSType(card.typeId)).forEach(card => {
+                if (card.typeId === 'rss-figsoku') return; // paced by its own 3 s timer (advanceFigsokuCards)
                 if (!card.rssItems?.length) return;
                 card.rssBannerIndex = (card.rssBannerIndex + 1) % card.rssItems.length;
                 const element = document.querySelector(`[data-card-id="${card.id}"]`);
@@ -7328,8 +7514,9 @@
         function synchronizeRSSBanners() {
             activeBoardCards().filter(card => isRSSType(card.typeId)).forEach(card => {
                 const element = document.querySelector(`[data-card-id="${card.id}"]`);
-                if (card.typeId === 'rss-image') {
-                    element?.querySelector('.rss-image-view')?.replaceWith(createRSSImageView(card));
+                if (card.typeId === 'rss-image' || card.typeId === 'rss-figsoku') {
+                    if (card.typeId === 'rss-figsoku' && element) crossfadeRSSImageView(element, createRSSImageView(card));
+                    else element?.querySelector('.rss-image-view')?.replaceWith(createRSSImageView(card));
                     return;
                 }
                 const banner = element?.querySelector('.board-card-rss-banner');
@@ -7348,12 +7535,15 @@
         function startRSSBannerRotation() {
             if (document.hidden || rssBannerIntervalId !== null) return;
             rssBannerIntervalId = setInterval(updateRSSBanners, 8000);
+            figsokuIntervalId = setInterval(advanceFigsokuCards, FIGSOKU_IMAGE_MS);
         }
 
         function stopRSSBannerRotation() {
             if (rssBannerIntervalId === null) return;
             clearInterval(rssBannerIntervalId);
             rssBannerIntervalId = null;
+            clearInterval(figsokuIntervalId);
+            figsokuIntervalId = null;
         }
 
         document.addEventListener('visibilitychange', () => {
