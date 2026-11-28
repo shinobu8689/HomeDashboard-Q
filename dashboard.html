@@ -2667,21 +2667,114 @@
             transform: scale(1);
         }
 
-        .board-add-menu {
-            position: absolute;
-            top: 50%;
+        /* Selected location: the empty cell the dock is choosing a widget for. */
+        .board-empty-cell.menu-open .board-empty-cell-button {
+            border-color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            box-shadow: 0 0 0 1px var(--accent), 0 0 30px color-mix(in srgb, var(--accent) 38%, transparent);
+        }
+
+        .board-empty-cell.menu-open .board-empty-cell-button::before {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .panel-add-cell.menu-open .board-empty-cell-button {
+            border-style: solid;
+        }
+
+        /* Widget dock: slides up from the bottom, same glass look as the cards. */
+        .add-dock {
+            position: fixed;
             left: 50%;
-            z-index: 5;
+            bottom: max(16px, env(safe-area-inset-bottom));
+            z-index: 120;
+            width: min(94vw, 980px);
+            padding: 12px 6px 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 22px;
+            background: rgba(0,0,0,0.3);
+            -webkit-backdrop-filter: blur(14px) saturate(1.2);
+            backdrop-filter: blur(14px) saturate(1.2);
+            box-shadow: 0 14px 32px rgba(0,0,0,0.35);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, calc(100% + 32px));
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+        }
+
+        .add-dock.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, 0);
+        }
+
+        .add-dock-track {
             display: flex;
-            min-width: 132px;
+            gap: 10px;
+            padding: 2px 10px 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            overscroll-behavior-x: contain;
+            scroll-snap-type: x proximity;
+            scroll-padding: 0 10px;
+        }
+
+        .add-dock-item {
+            flex: none;
+            display: flex;
+            width: 150px;
             flex-direction: column;
-            gap: 2px;
-            padding: 5px;
+            align-items: stretch;
+            gap: 7px;
+            padding: 6px 6px 8px;
+            border: 1px solid transparent;
+            border-radius: 16px;
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+            scroll-snap-align: start;
+            transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+        }
+
+        .add-dock-item:hover:not(:disabled) {
+            border-color: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.07);
+            transform: translateY(-2px);
+        }
+
+        .add-dock-item:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+        .add-dock-item:disabled {
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        .add-dock-preview {
+            display: block;
+            width: 100%;
+            aspect-ratio: 8 / 5;
+            overflow: hidden;
             border: 1px solid rgba(255,255,255,0.12);
             border-radius: 12px;
-            background: #1a1a1a;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.45);
-            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.3);
+            color: rgba(255,255,255,0.85);
+        }
+
+        .add-dock-preview svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .add-dock-label {
+            font-size: 0.75rem;
+            line-height: 1.2;
+            text-align: center;
         }
 
         .board-card-size-option {
@@ -3306,11 +3399,6 @@
             transform: none;
         }
 
-        .panel-add-cell .board-add-menu {
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
@@ -3749,7 +3837,7 @@
                 closeBoardMenu();
                 return;
             }
-            if (e.target.closest?.('.board-card-menu, .board-add-menu')) return;
+            if (e.target.closest?.('.board-card-menu, .add-dock')) return;
             const isEditableTarget = e.target instanceof HTMLElement
                 && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
             if (!isEditableTarget && (e.key === '0' || e.code === 'Numpad0')) {
@@ -5056,7 +5144,10 @@
             }
 
             const youtubeVideoId = getYouTubeVideoId(card.mediaUrl);
-            if (youtubeVideoId) {
+            const youtubePlaylistId = getYouTubePlaylistId(card.mediaUrl);
+            if (youtubePlaylistId) {
+                renderYouTubePlaylist(content, showMessage, youtubePlaylistId, youtubeVideoId);
+            } else if (youtubeVideoId) {
                 const frame = document.createElement('iframe');
                 const params = new URLSearchParams({
                     autoplay: '1',
@@ -5966,33 +6057,124 @@
             return menu;
         }
 
-        function createBoardAddMenu(col, row) {
-            const menu = document.createElement('div');
-            menu.className = 'board-add-menu';
-            menu.setAttribute('role', 'group');
-            menu.setAttribute('aria-label', 'Choose card type');
+        // ----- Widget dock (opens from the bottom when a + cell is clicked) -----
+        // Miniature drawings, 160 x 100, one per card type. They only hint at the layout.
+        const DOCK_PREVIEWS = (() => {
+            const f = (o) => `rgba(255,255,255,${o})`;
+            const card = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${f(0.06)}" stroke="${f(0.28)}"/>`;
+            const lines = (x, y, widths, gap = 9, o = 0.35) => widths.map((w, n) => `<rect x="${x}" y="${y + n * gap}" width="${w}" height="3.5" rx="1.75" fill="${f(o)}"/>`).join('');
+            const text = (x, y, size, str, o = 0.9, anchor = 'start') => `<text x="${x}" y="${y}" font-size="${size}" fill="${f(o)}" text-anchor="${anchor}" font-family="ui-monospace, Menlo, Consolas, monospace">${str}</text>`;
+            const svg = body => `<svg viewBox="0 0 160 100" aria-hidden="true">${body}</svg>`;
+            return {
+                'dummy': svg(card(52, 22, 56, 56) + lines(62, 44, [36, 24], 9, 0.3)),
+                'weather': svg(card(18, 8, 124, 84)
+                    + `<circle cx="42" cy="30" r="9" fill="none" stroke="${f(0.8)}" stroke-width="2"/>`
+                    + text(62, 38, 22, '21°', 0.95)
+                    + lines(28, 50, [60, 40], 8, 0.3)
+                    + [0,1,2,3,4,5,6,7].map(n => `<rect x="${28 + n * 13}" y="${70 + (n % 3) * 3}" width="8" height="14" rx="3" fill="${f(0.22 + (n % 3) * 0.08)}"/>`).join('')),
+                'clock-1x1': svg(card(40, 18, 80, 64) + text(80, 54, 18, '10:09', 0.95, 'middle') + text(80, 70, 8, 'MELBOURNE', 0.45, 'middle')),
+                'clock-grid': svg(card(30, 10, 100, 80)
+                    + text(55, 36, 10, '10:09', 0.9, 'middle') + text(105, 36, 10, '08:09', 0.9, 'middle')
+                    + text(55, 70, 10, '09:09', 0.9, 'middle') + text(105, 70, 10, '01:09', 0.9, 'middle')
+                    + `<path d="M80 18v64M38 50h84" stroke="${f(0.15)}"/>`),
+                'system-usage': svg(card(14, 22, 132, 56)
+                    + [0, 1, 2].map(n => `<rect x="26" y="${34 + n * 14}" width="108" height="6" rx="3" fill="${f(0.12)}"/><rect x="26" y="${34 + n * 14}" width="${[70, 46, 88][n]}" height="6" rx="3" fill="${f(0.7)}"/>`).join('')),
+                'rss': svg(card(18, 6, 124, 88) + [0, 1, 2, 3].map(n => `<rect x="28" y="${16 + n * 19}" width="14" height="14" rx="3" fill="${f(0.18)}"/>` + lines(48, 17 + n * 19, [80, 52], 7, 0.35)).join('')),
+                'rss-image': svg(card(18, 6, 124, 88) + `<rect x="26" y="14" width="108" height="46" rx="6" fill="${f(0.14)}"/><path d="M26 54l30-22 26 16 18-12 34 22v6H26z" fill="${f(0.2)}"/>` + lines(28, 70, [96, 60], 9, 0.35)),
+                'rss-figsoku': svg(card(18, 6, 124, 88) + `<rect x="26" y="14" width="108" height="56" rx="6" fill="${f(0.14)}"/><circle cx="62" cy="34" r="8" fill="${f(0.25)}"/><path d="M26 64l36-22 28 16 18-10 26 16v6H26z" fill="${f(0.2)}"/>`
+                    + [0, 1, 2].map(n => `<circle cx="${72 + n * 8}" cy="82" r="2.5" fill="${f(n === 0 ? 0.9 : 0.3)}"/>`).join('')),
+                'calendar': svg(card(30, 8, 100, 84) + text(80, 26, 9, 'NOVEMBER', 0.7, 'middle')
+                    + Array.from({ length: 21 }, (_, n) => { const cx = 44 + (n % 7) * 12, cy = 40 + Math.floor(n / 7) * 14; return n === 10 ? `<circle cx="${cx}" cy="${cy}" r="5.5" fill="${f(0.9)}"/>` : `<circle cx="${cx}" cy="${cy}" r="2" fill="${f(0.4)}"/>`; }).join('')),
+                'media': svg(card(22, 14, 116, 72) + `<circle cx="80" cy="50" r="15" fill="none" stroke="${f(0.8)}" stroke-width="2"/><path d="M75 42l14 8-14 8z" fill="${f(0.9)}"/>`),
+                'now-playing': svg(card(14, 18, 132, 64) + `<rect x="24" y="28" width="38" height="38" rx="6" fill="${f(0.2)}"/><circle cx="43" cy="47" r="8" fill="none" stroke="${f(0.6)}" stroke-width="2"/>`
+                    + lines(72, 32, [58, 38], 9, 0.5) + `<rect x="72" y="58" width="62" height="4" rx="2" fill="${f(0.15)}"/><rect x="72" y="58" width="26" height="4" rx="2" fill="${f(0.75)}"/>`),
+                'manga-shelf': svg(card(14, 18, 132, 64)
+                    + [0, 1, 2, 3, 4, 5, 6].map(n => `<rect x="${26 + n * 15}" y="${32 + (n % 3) * 3}" width="11" height="${40 - (n % 3) * 3}" rx="2" fill="${f(0.16 + (n % 4) * 0.08)}"/>`).join('')),
+                'url': svg(card(52, 20, 56, 60) + `<rect x="66" y="34" width="28" height="28" rx="7" fill="${f(0.18)}"/><path d="M76 53l8-8M78 43h6v6" stroke="${f(0.85)}" stroke-width="2" fill="none" stroke-linecap="round"/>`),
+                'url-grid': svg(card(30, 10, 100, 80) + [0, 1, 2, 3].map(n => `<rect x="${41 + (n % 2) * 40}" y="${21 + Math.floor(n / 2) * 32}" width="28" height="24" rx="6" fill="${f(0.18)}"/>`).join(''))
+            };
+        })();
 
-            BOARD_CARD_TYPES.forEach(type => {
-                const sizes = type.allowedSizes || [{ width: type.width, height: type.height }];
-                const availableSize = sizes
-                    .map(size => ({
-                        size,
-                        placement: findBoardPlacement(null, size.width, size.height, col, row)
-                    }))
-                    .find(option => option.placement);
-                const option = document.createElement('button');
-                option.type = 'button';
-                option.className = 'board-card-size-option';
-                option.textContent = type.label;
-                option.disabled = !availableSize;
-                if (!availableSize) option.title = `Not enough free space for a ${type.label.toLowerCase()} card`;
-                option.addEventListener('click', () => {
-                    if (!availableSize) return;
-                    createBoardCard(type.id, availableSize.placement, availableSize.size);
+        const addDock = document.createElement('div');
+        addDock.className = 'add-dock';
+        addDock.setAttribute('role', 'group');
+        addDock.setAttribute('aria-label', 'Choose a card type');
+        addDock.setAttribute('aria-hidden', 'true');
+        addDock.inert = true;
+        const addDockTrack = document.createElement('div');
+        addDockTrack.className = 'add-dock-track';
+        addDock.appendChild(addDockTrack);
+        document.body.appendChild(addDock);
+        let addDockKey = null;
+
+        // Scrolling over the dock moves it sideways instead of changing page.
+        addDock.addEventListener('wheel', event => {
+            event.stopPropagation();
+            if (event.deltaX === 0 && event.deltaY !== 0) addDockTrack.scrollLeft += event.deltaY;
+        }, { passive: true });
+        addDock.addEventListener('touchstart', event => event.stopPropagation(), { passive: true });
+        addDock.addEventListener('touchend', event => event.stopPropagation(), { passive: true });
+
+        function createDockItem(type, { disabled = false, title = '', onChoose }) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'add-dock-item';
+            item.disabled = disabled;
+            if (title) item.title = title;
+            const preview = document.createElement('span');
+            preview.className = 'add-dock-preview';
+            preview.innerHTML = DOCK_PREVIEWS[type.id] || DOCK_PREVIEWS.dummy;
+            const label = document.createElement('span');
+            label.className = 'add-dock-label';
+            label.textContent = type.label;
+            item.append(preview, label);
+            item.addEventListener('click', () => { if (!disabled) onChoose(); });
+            return item;
+        }
+
+        // Shows, updates or hides the dock to match the open + cell. Called after every board render.
+        function syncAddDock() {
+            const boardOpen = !pagesMode && openBoardCell;
+            const panelOpen = pagesMode && panelAddMenuOpen;
+            if (!boardOpen && !panelOpen) {
+                addDock.classList.remove('open');
+                addDock.setAttribute('aria-hidden', 'true');
+                addDock.inert = true;
+                addDockKey = null;
+                return;
+            }
+
+            const key = boardOpen ? `board:${openBoardCell.col},${openBoardCell.row}:${boardCards.length}` : `panel:${panelCards.length}`;
+            if (key !== addDockKey) {
+                const keepScroll = addDockKey !== null ? addDockTrack.scrollLeft : 0;
+                addDockTrack.replaceChildren();
+                BOARD_CARD_TYPES.forEach(type => {
+                    if (boardOpen) {
+                        const { col, row } = openBoardCell;
+                        const sizes = type.allowedSizes || [{ width: type.width, height: type.height }];
+                        const available = sizes
+                            .map(size => ({ size, placement: findBoardPlacement(null, size.width, size.height, col, row) }))
+                            .find(option => option.placement);
+                        addDockTrack.appendChild(createDockItem(type, {
+                            disabled: !available,
+                            title: available ? '' : `Not enough free space for a ${type.label.toLowerCase()} card`,
+                            onChoose: () => createBoardCard(type.id, available.placement, available.size)
+                        }));
+                    } else {
+                        const sizes = panelSizesFor(type);
+                        if (!sizes.length) return; // no square size (for example the 2 x 1 system usage card)
+                        addDockTrack.appendChild(createDockItem(type, {
+                            // New panels start at the largest square size the type supports; change it from the ··· menu.
+                            onChoose: () => createBoardCard(type.id, { col: 1, row: 1 }, sizes[sizes.length - 1], { panel: true })
+                        }));
+                    }
                 });
-                menu.appendChild(option);
-            });
-            return menu;
+                addDockTrack.scrollLeft = keepScroll;
+                addDockKey = key;
+            }
+            addDock.inert = false;
+            addDock.setAttribute('aria-hidden', 'false');
+            addDock.classList.add('open');
         }
 
         function buildBoardCardElement(card, { panel = false } = {}) {
@@ -6221,27 +6403,6 @@
             applyPageChrome();
         }
 
-        function createPanelAddMenu() {
-            const menu = document.createElement('div');
-            menu.className = 'board-add-menu';
-            menu.setAttribute('role', 'group');
-            menu.setAttribute('aria-label', 'Choose panel type');
-            BOARD_CARD_TYPES.forEach(type => {
-                const sizes = panelSizesFor(type);
-                if (!sizes.length) return; // no square size (for example the 2 x 1 system usage card)
-                const option = document.createElement('button');
-                option.type = 'button';
-                option.className = 'board-card-size-option';
-                option.textContent = type.label;
-                option.addEventListener('click', () => {
-                    // New panels start at the largest square size the type supports; change it from the ··· menu.
-                    createBoardCard(type.id, { col: 1, row: 1 }, sizes[sizes.length - 1], { panel: true });
-                });
-                menu.appendChild(option);
-            });
-            return menu;
-        }
-
         function renderPanelPages(stayOnSettings = false) {
             rebuildPages(stayOnSettings);
 
@@ -6266,11 +6427,10 @@
                     panelAddMenuOpen = !panelAddMenuOpen;
                     renderPanelPages();
                     if (panelAddMenuOpen) {
-                        document.querySelector('.panel-add-cell .board-add-menu button')?.focus();
+                        addDock.querySelector('.add-dock-item:not(:disabled)')?.focus();
                     }
                 });
                 cell.appendChild(addButton);
-                if (panelAddMenuOpen) cell.appendChild(createPanelAddMenu());
                 addPage.appendChild(cell);
             }
 
@@ -6282,6 +6442,7 @@
             }
             updateBoardClocks();
             fitBoardMenus();
+            syncAddDock();
         }
 
         function startActiveCardLoaders() {
@@ -6330,7 +6491,7 @@
                         openBoardCell = isAlreadyOpen ? null : { col, row };
                         rerenderCards();
                         if (openBoardCell) {
-                            document.querySelector('.board-add-menu button')?.focus();
+                            addDock.querySelector('.add-dock-item:not(:disabled)')?.focus();
                         }
                     });
                     cell.appendChild(addButton);
@@ -6373,9 +6534,6 @@
                         rerenderCards();
                     });
 
-                    if (openBoardCell?.col === col && openBoardCell?.row === row) {
-                        cell.appendChild(createBoardAddMenu(col, row));
-                    }
                     boardGrid.appendChild(cell);
                 }
             }
@@ -6393,6 +6551,7 @@
                 updateNowPlaying(nowPlayingData, nowPlayingError);
             }
             fitBoardMenus();
+            syncAddDock();
         }
 
         // Keep an open card menu (the "···" popup) fully on screen: shrink and scroll it if it is
@@ -6436,7 +6595,7 @@
         }
 
         document.addEventListener('click', event => {
-            if (!event.target.closest('.board-card-menu, .board-card-menu-button, .board-empty-cell-button, .board-add-menu')) {
+            if (!event.target.closest('.board-card-menu, .board-card-menu-button, .board-empty-cell-button, .add-dock')) {
                 closeBoardMenu();
             }
         });
@@ -6728,6 +6887,67 @@
             }
 
             return videoId && /^[\w-]{11}$/.test(videoId) ? videoId : null;
+        }
+
+        // A link that carries a playlist id (youtube.com/playlist?list=…, or watch?v=…&list=…) is a playlist link.
+        function getYouTubePlaylistId(value) {
+            let parsed;
+            try {
+                parsed = new URL(value);
+            } catch (e) {
+                return null;
+            }
+
+            const host = parsed.hostname.toLowerCase();
+            if (!['youtu.be', 'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) return null;
+            const listId = parsed.searchParams.get('list');
+            return listId && /^[\w-]{10,64}$/.test(listId) ? listId : null;
+        }
+
+        // Plays a YouTube playlist muted and without end: the whole playlist loops. Videos that were removed or
+        // cannot be embedded are skipped; if nothing in the playlist plays, a message is shown instead.
+        function renderYouTubePlaylist(content, showMessage, playlistId, startVideoId) {
+            const target = document.createElement('div');
+            content.appendChild(target);
+            // Deferred one tick: the player API loader lives further down the script.
+            Promise.resolve().then(loadYouTubeIframeApi).then(YT => {
+                if (!target.isConnected) return; // the card was re-rendered in the meantime
+                let failures = 0;
+                new YT.Player(target, {
+                    width: '100%',
+                    height: '100%',
+                    ...(startVideoId ? { videoId: startVideoId } : {}),
+                    playerVars: {
+                        listType: 'playlist',
+                        list: playlistId,
+                        autoplay: 1,
+                        controls: 0,
+                        loop: 1,
+                        mute: 1,
+                        playsinline: 1,
+                        rel: 0
+                    },
+                    events: {
+                        onReady: event => {
+                            event.target.mute();
+                            event.target.playVideo();
+                        },
+                        onStateChange: event => {
+                            if (event.data === YT.PlayerState.PLAYING) failures = 0;
+                        },
+                        onError: event => {
+                            // 2 = invalid playlist; 100, 101 and 150 = video removed, private or not embeddable.
+                            const limit = Math.max(event.target.getPlaylist?.()?.length || 0, 5);
+                            if (event.data === 2 || ++failures > limit) {
+                                event.target.destroy();
+                                showMessage('Could not play this YouTube playlist');
+                                return;
+                            }
+                            event.target.nextVideo();
+                        }
+                    }
+                });
+            }).catch(() => showMessage('Could not load the YouTube player'));
         }
 
         const backgroundMediaInput = document.getElementById('setting-bg');
