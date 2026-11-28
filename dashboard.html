@@ -1143,6 +1143,19 @@
             transform: scale(1.1);
         }
 
+        /* A cover fetched from YT Music is a proper square, so it is shown sharp. Only the cover itself changes:
+           the blurred backdrop behind the panel stays as it is. (1x1: the art is the whole card, so the
+           frosted-glass blur over it goes too and only the dark gradient stays, to keep the text readable.) */
+        .board-now-playing.has-sharp-art .board-np-cover img {
+            filter: none;
+            transform: none;
+        }
+
+        .size-1x1 .board-now-playing.has-art.has-sharp-art .board-np-scrim {
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
+        }
+
         /* Glass sheen and rim over the thumbnail. */
         .size-2x1 .board-now-playing.has-art .board-np-cover {
             position: relative;
@@ -1385,6 +1398,259 @@
             stroke-width: 2.4;
             stroke-linecap: round;
             stroke-linejoin: round;
+        }
+
+        /* ----- Album shelf: spines and one cover, which opens into a sub-layer with the songs ----- */
+        .board-card.board-card-album-shelf {
+            display: block;
+            overflow: visible;
+            padding: 0;
+            border-color: transparent;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .board-album-shelf {
+            --spine: 30px;
+            --gap: 6px;
+            --cover: 100px;
+            --panel: 200px;
+            --art: 100px;
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        .board-album-shelf.is-message {
+            display: block;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 22px;
+            background: rgba(0,0,0,0.3);
+            -webkit-backdrop-filter: blur(14px) saturate(1.2);
+            backdrop-filter: blur(14px) saturate(1.2);
+        }
+
+        .board-album-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            height: 100%;
+            gap: var(--gap);
+            will-change: transform;
+        }
+
+        .board-album-item {
+            position: relative;
+            flex: 0 0 auto;
+            width: var(--spine);
+            height: 100%;
+            overflow: hidden;
+            border-radius: 16px;
+        }
+
+        .board-album-item.is-selected { width: var(--cover); }
+        .board-album-item.is-open { width: var(--panel); }
+
+        .board-album-shelf.is-animated .board-album-strip {
+            transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .board-album-shelf.is-animated .board-album-item {
+            transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .board-album-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            margin: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .board-album-layer.is-active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .board-album-spine,
+        .board-album-cover {
+            padding: 0;
+            border: 1px solid rgba(255,255,255,0.14);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .board-album-spine {
+            display: flex;
+            width: var(--spine);
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 16px;
+            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.68)), var(--art, none) center / cover no-repeat;
+        }
+
+        .board-album-spine:hover {
+            border-color: rgba(255,255,255,0.38);
+        }
+
+        .board-album-spine-title,
+        .board-album-song-title {
+            display: block;
+            max-height: 100%;
+            overflow: hidden;
+            font-size: calc(var(--spine) * 0.38);
+            line-height: 1;
+            letter-spacing: 0.04em;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            writing-mode: vertical-rl;
+        }
+
+        .board-album-spine-title {
+            min-height: 1em;   /* a one-character title would otherwise collapse to nothing */
+            max-height: 88%;
+        }
+
+        .board-album-cover {
+            top: 50%;
+            width: var(--cover);
+            height: var(--cover);
+            overflow: hidden;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 14px 32px rgba(0,0,0,0.35);
+            transform: translateY(-50%);
+        }
+
+        .board-album-cover img,
+        .board-album-art img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .board-album-cover-caption {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            padding: 1.4em 0.7em 0.55em;
+            background: linear-gradient(transparent, rgba(0,0,0,0.78));
+            font-size: calc(var(--spine) * 0.36);
+            line-height: 1.2;
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .board-album-open {
+            display: flex;
+            width: var(--panel);
+            box-sizing: border-box;
+            align-items: stretch;
+            gap: var(--gap);
+            padding: var(--gap);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 18px;
+            background: rgba(0,0,0,0.35);
+            -webkit-backdrop-filter: blur(14px) saturate(1.2);
+            backdrop-filter: blur(14px) saturate(1.2);
+            box-shadow: 0 14px 32px rgba(0,0,0,0.35);
+        }
+
+        .board-album-art {
+            flex: none;
+            width: var(--art);
+            height: var(--art);
+            align-self: center;
+            overflow: hidden;
+            padding: 0;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            cursor: pointer;
+        }
+
+        .board-album-art:hover {
+            border-color: rgba(255,255,255,0.38);
+        }
+
+        .board-album-song {
+            display: flex;
+            flex: none;
+            width: var(--spine);
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.45em;
+            box-sizing: border-box;
+            padding: 0.6em 0 0.7em;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.07);
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+            transition: background 0.16s ease, border-color 0.16s ease;
+        }
+
+        .board-album-song:hover:not(:disabled) {
+            border-color: rgba(255,255,255,0.34);
+            background: rgba(255,255,255,0.16);
+        }
+
+        .board-album-song:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
+        }
+
+        .board-album-song:focus-visible,
+        .board-album-art:focus-visible,
+        .board-album-spine:focus-visible,
+        .board-album-cover:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+        .board-album-song-number {
+            font-size: calc(var(--spine) * 0.3);
+            font-variant-numeric: tabular-nums;
+            opacity: 0.6;
+        }
+
+        .board-album-song-title {
+            min-height: 0;
+            flex: 1 1 auto;
+        }
+
+        .board-album-song.is-close {
+            color: var(--accent);
+        }
+
+        .board-album-song.is-close .board-album-song-number {
+            opacity: 1;
+        }
+
+        /* Where the arrows currently are inside the open album. */
+        .board-album-song.is-cursor,
+        .board-album-art.is-cursor {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .board-album-shelf.is-animated .board-album-strip,
+            .board-album-shelf.is-animated .board-album-item {
+                transition: none;
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -3854,7 +4120,7 @@
             // Single panel mode: Left / Right step the manga shelf on the panel being shown.
             if (pagesMode && !isEditableTarget && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey
                 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-                const shelf = getPageElements()[currentPage]?.querySelector('.board-manga-shelf');
+                const shelf = getPageElements()[currentPage]?.querySelector('.board-manga-shelf, .board-album-shelf');
                 if (shelf && typeof shelf.moveShelf === 'function') {
                     e.preventDefault();
                     shelf.moveShelf(e.key === 'ArrowRight' ? 1 : -1);
@@ -3997,6 +4263,17 @@
                 allowedSizes: [
                     { width: 1, height: 1 },
                     { width: 2, height: 1 }
+                ]
+            },
+            {
+                id: 'album-shelf',
+                label: 'Album shelf',
+                width: 2,
+                height: 1,
+                allowedSizes: [
+                    { width: 2, height: 1 },
+                    { width: 3, height: 1 },
+                    { width: 1, height: 1 }
                 ]
             },
             {
@@ -4330,10 +4607,18 @@
             const image = document.createElement('img');
             image.alt = '';
             image.draggable = false;
-            image.addEventListener('load', () => panel.classList.add('has-art'));
+            image.addEventListener('load', () => {
+                panel.classList.add('has-art');
+                panel.classList.toggle('has-sharp-art', image.dataset.source === 'yt');
+            });
+            image.referrerPolicy = 'no-referrer';
             image.addEventListener('error', () => {
-                panel.classList.remove('has-art');
+                panel.classList.remove('has-art', 'has-sharp-art');
                 image.dataset.key = '';
+                if (image.dataset.source === 'yt') {
+                    failNowPlayingArt();   // could not load it: use the Windows thumbnail instead
+                    applyNowPlayingCover(panel);
+                }
             });
             const fallback = document.createElement('span');
             fallback.className = 'board-np-cover-fallback';
@@ -4437,12 +4722,142 @@
             element.appendChild(panel);
         }
 
+        // ---- YT Music cover art ----
+        // Windows only hands over a small, soft thumbnail. While YT Music is the source (its web app reports an id
+        // such as "music.youtube.com-…") a proper cover is used instead, found in this order:
+        //   1. an Album shelf on the dashboard that has the playing song on one of its albums (nothing to look up);
+        //   2. a YT Music search for the song: GET /now-playing-art?title=&artist=&duration= -> { found, cover, album }
+        //      (see album_shelf.py).
+        // A browser tab reports only "Microsoft Edge", so it keeps the Windows thumbnail.
+        // origin: '' none yet, 'shelf' from an Album shelf, 'search' from the search.
+        const nowPlayingArt = { trackKey: '', url: '', origin: '', failed: new Set() };
+        let nowPlayingArtLookup = '';   // the track a search was last started for
+
+        function isYouTubeMusicSource(data) {
+            return Boolean(data?.active) && /music\.youtube\.com|youtube\s*music/i.test(data.app || '');
+        }
+
+        function nowPlayingTrackKey(data) {
+            return `${data.title || ''}\u0000${data.artist || ''}`;
+        }
+
+        function normalizeSongText(text) {
+            return String(text || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+        }
+
+        // The cover of an Album shelf album that has this song, preferring one by the same artist.
+        function findShelfCover(data) {
+            const wantedTitle = normalizeSongText(data.title);
+            if (!wantedTitle) return '';
+            const wantedArtist = normalizeSongText(data.artist);
+            let best = null;
+            activeBoardCards().filter(card => card.typeId === 'album-shelf').forEach(card => {
+                (card.albums || []).forEach(album => {
+                    if (!album.cover || nowPlayingArt.failed.has(album.cover)) return;
+                    if (!album.tracks.some(track => normalizeSongText(track.name) === wantedTitle)) return;
+                    const albumArtist = normalizeSongText(album.artist);
+                    const sameArtist = Boolean(wantedArtist && albumArtist
+                        && (albumArtist.includes(wantedArtist) || wantedArtist.includes(albumArtist)));
+                    if (!best || (sameArtist && !best.sameArtist)) best = { cover: album.cover, sameArtist };
+                });
+            });
+            return best ? best.cover : '';
+        }
+
+        // Which picture the card should show right now: the YT Music cover when there is one, else the Windows thumbnail.
+        function nowPlayingCoverSource() {
+            const data = nowPlayingData;
+            if (!data?.active) return { key: '', url: '', source: '' };
+            if (isYouTubeMusicSource(data) && nowPlayingArt.url && nowPlayingArt.trackKey === nowPlayingTrackKey(data)) {
+                return { key: `yt:${nowPlayingArt.url}`, url: nowPlayingArt.url, source: 'yt' };
+            }
+            if (data.hasThumbnail && data.thumbnailKey) {
+                const url = new URL('/media-thumbnail', getNowPlayingEndpoint());
+                url.searchParams.set('key', data.thumbnailKey);
+                return { key: data.thumbnailKey, url: url.href, source: 'thumbnail' };
+            }
+            return { key: '', url: '', source: '' };
+        }
+
+        function applyNowPlayingCover(panel) {
+            const image = panel.querySelector('.board-np-cover img');
+            const { key, url, source } = nowPlayingCoverSource();
+            if ((image.dataset.key || '') === key) return;
+            image.dataset.key = key;
+            image.dataset.source = source;
+            if (source !== 'yt') panel.classList.remove('has-sharp-art');   // the sharp mode is set when the cover has loaded
+            if (key) {
+                image.src = url;
+                panel.style.setProperty('--np-art', `url(${JSON.stringify(url)})`);
+            } else {
+                image.removeAttribute('src');
+                panel.style.removeProperty('--np-art');
+                panel.classList.remove('has-art', 'has-sharp-art');
+            }
+        }
+
+        // A cover that would not load is not tried again for this track; the Windows thumbnail is used instead.
+        function failNowPlayingArt() {
+            if (nowPlayingArt.url) nowPlayingArt.failed.add(nowPlayingArt.url);
+            nowPlayingArt.url = '';
+            nowPlayingArt.origin = '';
+        }
+
+        // Runs on every update while YT Music plays; cheap, because the search is only started once per track.
+        function resolveNowPlayingArt(data) {
+            if (!data.title) return;
+            const trackKey = nowPlayingTrackKey(data);
+            if (nowPlayingArt.trackKey !== trackKey) {
+                nowPlayingArt.trackKey = trackKey;
+                nowPlayingArt.url = '';
+                nowPlayingArt.origin = '';
+                nowPlayingArt.failed.clear();
+            }
+            if (nowPlayingArt.origin !== 'shelf') {
+                const shelfCover = findShelfCover(data);
+                if (shelfCover) {
+                    nowPlayingArt.url = shelfCover;
+                    nowPlayingArt.origin = 'shelf';
+                    return;
+                }
+            }
+            if (!nowPlayingArt.url) lookupNowPlayingArt(data, trackKey);
+        }
+
+        async function lookupNowPlayingArt(data, trackKey) {
+            if (nowPlayingArtLookup === trackKey) return;   // once per track, not once per poll
+            nowPlayingArtLookup = trackKey;
+            try {
+                const url = new URL('/now-playing-art', getNowPlayingEndpoint());
+                url.searchParams.set('title', data.title);
+                url.searchParams.set('artist', data.artist || '');
+                if (Number.isFinite(data.duration)) url.searchParams.set('duration', String(Math.round(data.duration)));
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Now playing art API returned HTTP ${response.status}`);
+                const result = await response.json();
+                if (nowPlayingArt.trackKey !== trackKey) return;   // the track changed while waiting
+                if (result.found && isWebUrl(result.cover)) {
+                    if (nowPlayingArt.origin !== 'shelf' && !nowPlayingArt.failed.has(result.cover)) {
+                        nowPlayingArt.url = result.cover;
+                        nowPlayingArt.origin = 'search';
+                        document.querySelectorAll('.board-now-playing').forEach(applyNowPlayingCover);
+                    }
+                } else {
+                    console.warn(`No YT Music cover found for "${data.title}" (${data.artist || 'unknown artist'})`,
+                        result.error || result.candidates || '');
+                }
+            } catch (error) {
+                if (nowPlayingArt.trackKey === trackKey) console.warn('Could not look up the YT Music cover:', error);
+            }
+        }
+
         function updateNowPlaying(data, error = '') {
             nowPlayingData = data;
             nowPlayingError = error;
             nowPlayingFetchedAt = performance.now();
             const active = Boolean(data?.active);
             const playing = active && data.status === 'playing';
+            if (isYouTubeMusicSource(data)) resolveNowPlayingArt(data);
 
             activeBoardCards().filter(card => card.typeId === 'now-playing').forEach(card => {
                 const element = document.querySelector(`[data-card-id="${card.id}"]`);
@@ -4457,21 +4872,7 @@
                 panel.querySelector('.board-np-artist').textContent = active ? data.artist : '';
                 element.title = error || '';
 
-                const image = panel.querySelector('.board-np-cover img');
-                const key = active && data.hasThumbnail ? data.thumbnailKey : '';
-                if ((image.dataset.key || '') !== key) {
-                    image.dataset.key = key;
-                    if (key) {
-                        const url = new URL('/media-thumbnail', getNowPlayingEndpoint());
-                        url.searchParams.set('key', key);
-                        image.src = url.href;
-                        panel.style.setProperty('--np-art', `url("${url.href}")`);
-                    } else {
-                        image.removeAttribute('src');
-                        panel.style.removeProperty('--np-art');
-                        panel.classList.remove('has-art');
-                    }
-                }
+                applyNowPlayingCover(panel);
 
                 const [previousButton, playButton, nextButton] = panel.querySelectorAll('.board-np-btn');
                 previousButton.disabled = !(active && data.canPrevious);
@@ -4813,6 +5214,345 @@
                 ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>'
                 : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
             return button;
+        }
+
+        function initializeAlbumShelf(card, albumFile = 'album.txt') {
+            card.albumFile = typeof albumFile === 'string' && albumFile.trim() ? albumFile.trim() : 'album.txt';
+            card.albums = [];
+            card.albumOpenIndex = null;               // the album that is opened into its songs (only one at a time)
+            card.albumCursor = { album: 0, sub: -1 }; // where the arrows are: an album, or (sub >= 0) a part of the open album
+            card.albumStatus = 'idle';
+            card.albumError = '';
+            card.albumMenuStatus = '';
+            card.albumLoadToken = 0;
+        }
+
+        function isWebUrl(value) {
+            return typeof value === 'string' && /^https?:\/\//i.test(value);
+        }
+
+        // Expects GET /album-shelf?path=<album.txt> -> { title, albums: [{ id, name, artist, year, cover, url,
+        //   tracks: [{ number, name, url, duration }] }], warnings: [] }   (see album_shelf.py)
+        // `cover` is an https image URL; a track `url` is the YouTube Music link opened when the song is chosen.
+        async function loadAlbumShelf(card) {
+            const requestToken = ++card.albumLoadToken;
+            if (card.albumStatus !== 'ok') {
+                card.albumStatus = 'loading';
+                rerenderCards();
+            }
+            try {
+                const origin = window.location.protocol === 'file:'
+                    ? 'http://127.0.0.1:8787'
+                    : window.location.origin;
+                const url = new URL('/album-shelf', origin);
+                url.searchParams.set('path', card.albumFile);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Album shelf API returned HTTP ${response.status}`);
+                const data = await response.json();
+                if (!activeBoardCards().includes(card) || card.albumLoadToken !== requestToken) return;
+                const albums = (Array.isArray(data.albums) ? data.albums : [])
+                    .filter(album => album && typeof album.name === 'string' && Array.isArray(album.tracks))
+                    .map(album => ({
+                        id: String(album.id ?? album.name),
+                        name: album.name,
+                        artist: typeof album.artist === 'string' ? album.artist : '',
+                        year: album.year ? String(album.year) : '',
+                        cover: isWebUrl(album.cover) ? album.cover : '',
+                        tracks: album.tracks
+                            .filter(track => track && typeof track.name === 'string')
+                            .map((track, index) => ({
+                                number: Number.isFinite(track.number) ? track.number : index + 1,
+                                name: track.name,
+                                url: isWebUrl(track.url) ? track.url : '',
+                                duration: typeof track.duration === 'string' ? track.duration : ''
+                            }))
+                    }));
+                if (Array.isArray(data.warnings) && data.warnings.length) {
+                    console.warn(`Album shelf "${card.albumFile}":`, data.warnings);
+                }
+                const previousStatus = card.albumStatus;
+                const previousMenuStatus = card.albumMenuStatus;
+                const changed = JSON.stringify(albums) !== JSON.stringify(card.albums);
+                card.albums = albums;
+                const lastIndex = Math.max(albums.length - 1, 0);
+                card.albumCursor = { album: Math.min(Math.max(card.albumCursor.album, 0), lastIndex), sub: card.albumCursor.sub };
+                if (!albums.length || (card.albumOpenIndex !== null && card.albumOpenIndex > lastIndex)) card.albumOpenIndex = null;
+                card.albumStatus = albums.length ? 'ok' : 'error';
+                card.albumError = albums.length ? '' : `No albums found in ${card.albumFile}`;
+                card.albumMenuStatus = albums.length
+                    ? `${albums.length} album${albums.length === 1 ? '' : 's'}` +
+                        (data.warnings?.length ? `, ${data.warnings.length} skipped (see console)` : '')
+                    : card.albumError;
+                if (changed || previousStatus !== card.albumStatus || previousMenuStatus !== card.albumMenuStatus) rerenderCards();
+            } catch (error) {
+                if (!activeBoardCards().includes(card) || card.albumLoadToken !== requestToken) return;
+                console.error(`Album shelf error for card ${card.id}:`, error);
+                card.albums = [];
+                card.albumOpenIndex = null;
+                card.albumStatus = 'error';
+                card.albumError = 'Could not load the album list';
+                card.albumMenuStatus = error.message || card.albumError;
+                rerenderCards();
+            }
+        }
+
+        function renderAlbumShelf(card, element) {
+            const shelf = document.createElement('div');
+            shelf.className = 'board-album-shelf';
+            element.appendChild(shelf);
+
+            if (card.albumStatus !== 'ok' || !card.albums.length) {
+                shelf.classList.add('is-message');
+                const message = document.createElement('div');
+                message.className = 'board-card-media-empty';
+                message.textContent = card.albumStatus === 'loading' || card.albumStatus === 'idle'
+                    ? 'Loading albums…'
+                    : card.albumError || 'No albums';
+                shelf.appendChild(message);
+                return;
+            }
+
+            const albums = card.albums;
+            const count = albums.length;
+            const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+            if (card.albumOpenIndex !== null && (card.albumOpenIndex < 0 || card.albumOpenIndex >= count)) card.albumOpenIndex = null;
+            card.albumCursor = { album: clamp(card.albumCursor.album, 0, count - 1), sub: card.albumCursor.sub };
+
+            // An open album is laid out in full: its art, then every song, with a "close" after each 8 songs.
+            const itemLists = albums.map(album => {
+                const items = [];
+                album.tracks.forEach((track, index) => {
+                    items.push({ close: false, track });
+                    if ((index + 1) % 8 === 0) items.push({ close: true });
+                });
+                return items;
+            });
+            const childCount = index => 1 + itemLists[index].length;   // the art + the songs/close tabs
+
+            // The cursor is on a closed album (sub = -1) or on a part of the open album (0 = its art, 1.. = what follows).
+            function normalizeCursor() {
+                const cursor = card.albumCursor;
+                cursor.sub = cursor.album === card.albumOpenIndex
+                    ? clamp(cursor.sub, 0, childCount(cursor.album) - 1)
+                    : -1;
+            }
+
+            const strip = document.createElement('div');
+            strip.className = 'board-album-strip';
+            const prevButton = createMangaArrow('prev');
+            const nextButton = createMangaArrow('next');
+            prevButton.setAttribute('aria-label', 'Previous');
+            nextButton.setAttribute('aria-label', 'Next');
+
+            const label = album => (album.artist ? `${album.name} — ${album.artist}` : album.name);
+
+            function setCursor(album, sub) {
+                card.albumCursor = { album, sub };
+                update();
+            }
+
+            // Opening an album closes whichever album was open before.
+            function openAlbum(index) {
+                card.albumOpenIndex = index;
+                setCursor(index, 0);
+            }
+
+            function closeAlbum(index) {
+                card.albumOpenIndex = null;
+                setCursor(index, -1);
+            }
+
+            function buildOpenLayer(entry, index) {
+                const { album, open } = entry;
+                const art = document.createElement('button');
+                art.type = 'button';
+                art.className = 'board-album-art';
+                art.title = `Close ${album.name}`;
+                art.setAttribute('aria-label', `Close ${album.name}`);
+                const image = document.createElement('img');
+                image.alt = '';
+                image.draggable = false;
+                image.referrerPolicy = 'no-referrer';
+                if (album.cover) image.src = album.cover;
+                art.appendChild(image);
+                art.addEventListener('click', () => closeAlbum(index));
+                entry.children = [art];
+                open.appendChild(art);
+
+                itemLists[index].forEach(item => {
+                    const childIndex = entry.children.length;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = item.close ? 'board-album-song is-close' : 'board-album-song';
+                    const number = document.createElement('span');
+                    number.className = 'board-album-song-number';
+                    const text = document.createElement('span');
+                    text.className = 'board-album-song-title';
+                    if (item.close) {
+                        button.title = 'Close album';
+                        button.setAttribute('aria-label', `Close ${album.name}`);
+                        number.textContent = '×';
+                        text.textContent = 'Close';
+                        button.addEventListener('click', () => closeAlbum(index));
+                    } else {
+                        const track = item.track;
+                        button.disabled = !track.url;
+                        button.title = track.duration ? `${track.name} (${track.duration})` : track.name;
+                        number.textContent = String(track.number);
+                        text.textContent = track.name;
+                        // Songs stream from YouTube Music: choosing one opens its link in a new tab.
+                        button.addEventListener('click', () => {
+                            if (track.url) window.open(track.url, '_blank', 'noopener');
+                            setCursor(index, childIndex);
+                        });
+                    }
+                    button.append(number, text);
+                    open.appendChild(button);
+                    entry.children.push(button);
+                });
+            }
+
+            const entries = albums.map((album, index) => {
+                const item = document.createElement('div');
+                item.className = 'board-album-item';
+
+                const spine = document.createElement('button');
+                spine.type = 'button';
+                spine.className = 'board-album-layer board-album-spine';
+                spine.title = label(album);
+                spine.setAttribute('aria-label', label(album));
+                if (album.cover) spine.style.setProperty('--art', `url(${JSON.stringify(album.cover)})`);
+                const spineTitle = document.createElement('span');
+                spineTitle.className = 'board-album-spine-title';
+                spineTitle.textContent = album.name;
+                spine.appendChild(spineTitle);
+                spine.addEventListener('click', () => setCursor(index, -1));
+
+                const cover = document.createElement('button');
+                cover.type = 'button';
+                cover.className = 'board-album-layer board-album-cover';
+                cover.title = `Open ${label(album)}`;
+                cover.setAttribute('aria-label', `Open ${label(album)}`);
+                const image = document.createElement('img');
+                image.alt = '';
+                image.draggable = false;
+                image.referrerPolicy = 'no-referrer';
+                if (album.cover) image.src = album.cover;
+                const caption = document.createElement('span');
+                caption.className = 'board-album-cover-caption';
+                caption.textContent = album.name;
+                cover.append(image, caption);
+                cover.addEventListener('click', () => openAlbum(index));
+
+                const open = document.createElement('div');
+                open.className = 'board-album-layer board-album-open';
+                open.setAttribute('role', 'group');
+                open.setAttribute('aria-label', `${album.name} songs`);
+
+                item.append(spine, cover, open);
+                strip.appendChild(item);
+                return { album, item, spine, cover, open, children: null };
+            });
+
+            shelf.append(strip, prevButton, nextButton);
+
+            // Everything the arrows can step through, left to right: each closed album once, and every part
+            // of the open album (its art, then each song and close tab).
+            function buildOrder() {
+                const order = [];
+                entries.forEach((_, index) => {
+                    if (index === card.albumOpenIndex) {
+                        for (let sub = 0; sub < childCount(index); sub++) order.push({ album: index, sub });
+                    } else {
+                        order.push({ album: index, sub: -1 });
+                    }
+                });
+                return order;
+            }
+
+            let firstLayout = true;
+            function update() {
+                const width = shelf.clientWidth;
+                const height = shelf.clientHeight;
+                if (!width || !height) return;
+                normalizeCursor();
+
+                const gap = Math.max(4, Math.round(height * 0.03));
+                const spineWidth = Math.round(height * 0.17);
+                const coverWidth = Math.round(Math.min(height, width * 0.62));
+                const artWidth = height - gap * 2;
+                shelf.style.setProperty('--gap', `${gap}px`);
+                shelf.style.setProperty('--spine', `${spineWidth}px`);
+                shelf.style.setProperty('--cover', `${coverWidth}px`);
+                shelf.style.setProperty('--art', `${artWidth}px`);
+
+                const open = card.albumOpenIndex;
+                const cursor = card.albumCursor;
+                // Padding + border + art + every song, so the whole album is open even past the card's edges.
+                const panelWidths = itemLists.map(items => gap * 2 + 2 + artWidth + items.length * (spineWidth + gap));
+                const widths = entries.map((_, index) =>
+                    index === open ? panelWidths[index] : (index === cursor.album ? coverWidth : spineWidth));
+                const lefts = [];
+                let x = 0;
+                widths.forEach(value => { lefts.push(x); x += value + gap; });
+                const total = x - gap;
+
+                // Keep the cursor in the middle of the card. The strip only stops short of its ends when it
+                // is longer than the card, and is centred as a whole when it is shorter.
+                let centre = lefts[cursor.album] + widths[cursor.album] / 2;
+                if (cursor.sub >= 0) {
+                    const childLeft = 1 + gap + (cursor.sub === 0 ? 0 : artWidth + gap + (cursor.sub - 1) * (spineWidth + gap));
+                    centre = lefts[cursor.album] + childLeft + (cursor.sub === 0 ? artWidth : spineWidth) / 2;
+                }
+                const shift = total <= width ? (width - total) / 2 : Math.min(0, Math.max(width - total, width / 2 - centre));
+                strip.style.transform = `translateX(${shift}px)`;
+
+                entries.forEach((entry, index) => {
+                    const isOpen = index === open;
+                    const isCursorAlbum = index === cursor.album;
+                    if (isOpen && !entry.children) buildOpenLayer(entry, index);
+                    entry.item.style.setProperty('--panel', `${panelWidths[index]}px`);
+                    entry.item.classList.toggle('is-selected', !isOpen && isCursorAlbum);
+                    entry.item.classList.toggle('is-open', isOpen);
+                    [[entry.spine, !isOpen && !isCursorAlbum], [entry.cover, !isOpen && isCursorAlbum], [entry.open, isOpen]]
+                        .forEach(([layer, active]) => {
+                            layer.classList.toggle('is-active', active);
+                            layer.inert = !active;
+                        });
+                    if (entry.children) {
+                        entry.children.forEach((child, sub) =>
+                            child.classList.toggle('is-cursor', isOpen && isCursorAlbum && sub === cursor.sub));
+                    }
+                });
+
+                const order = buildOrder();
+                const position = order.findIndex(step => step.album === cursor.album && step.sub === cursor.sub);
+                prevButton.disabled = position <= 0;
+                nextButton.disabled = position >= order.length - 1;
+
+                if (firstLayout) {
+                    firstLayout = false;
+                    requestAnimationFrame(() => requestAnimationFrame(() => shelf.classList.add('is-animated')));
+                }
+            }
+
+            // One step along the shelf: through the open album's songs, and on to the next album.
+            // Stepping onto a closed album selects it; it does not open, and the open album stays open.
+            function moveShelf(direction) {
+                normalizeCursor();
+                const order = buildOrder();
+                const cursor = card.albumCursor;
+                const position = order.findIndex(step => step.album === cursor.album && step.sub === cursor.sub);
+                const next = clamp(position + direction, 0, order.length - 1);
+                if (next === position) return;
+                setCursor(order[next].album, order[next].sub);
+            }
+            prevButton.addEventListener('click', () => moveShelf(-1));
+            nextButton.addEventListener('click', () => moveShelf(1));
+            shelf.moveShelf = moveShelf;
+
+            new ResizeObserver(update).observe(shelf);
+            update();
         }
 
         function renderMangaShelf(card, element) {
@@ -5435,8 +6175,8 @@
             const layout = {
                 version: 1,
                 nextId: nextBoardCardId,
-                cards: boardCards.map(({ id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign }) => ({
-                    id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign
+                cards: boardCards.map(({ id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign, albumFile }) => ({
+                    id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign, albumFile
                 }))
             };
             try {
@@ -5466,6 +6206,9 @@
             if (card.typeId === 'manga-shelf') {
                 initializeMangaShelf(restoredCard, card.shelfPath, card.shelfAlign);
             }
+            if (card.typeId === 'album-shelf') {
+                initializeAlbumShelf(restoredCard, card.albumFile);
+            }
             if (card.typeId === 'url') {
                 restoredCard.url = typeof card.url === 'string' ? card.url : '';
                 restoredCard.imagePath = typeof card.imagePath === 'string' ? card.imagePath : '';
@@ -5480,8 +6223,8 @@
             }
         }
 
-        function serializeBoardCard({ id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign }) {
-            return { id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign };
+        function serializeBoardCard({ id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign, albumFile }) {
+            return { id, typeId, col, row, width, height, timezones, rssUrl, mediaUrl, url, imagePath, urls, images, shelfPath, shelfAlign, albumFile };
         }
 
         function savePanelLayout() {
@@ -5630,6 +6373,7 @@
             if (type.timezoneCount) card.timezones = [...type.defaultTimezones];
             if (type.id === 'media') card.mediaUrl = '';
             if (type.id === 'manga-shelf') initializeMangaShelf(card, '', 'right');
+            if (type.id === 'album-shelf') initializeAlbumShelf(card);
             if (type.id === 'url') {
                 card.url = '';
                 card.imagePath = '';
@@ -5652,6 +6396,7 @@
             if (isRSSType(card.typeId) && card.rssUrl) loadRSSCard(card);
             if (card.typeId === 'system-usage') fetchBoardSystemUsage();
             if (card.typeId === 'now-playing') fetchNowPlaying();
+            if (card.typeId === 'album-shelf') loadAlbumShelf(card);
         }
 
         function showBoardDragPreview(col, row, width, height, canDrop) {
@@ -5685,13 +6430,14 @@
         function createBoardMenu(card, { panel = false } = {}) {
             const menu = document.createElement('div');
             const type = BOARD_CARD_TYPES.find(item => item.id === card.typeId);
-            menu.className = `board-card-menu${type?.timezoneCount ? ' clock-menu' : ''}${isRSSType(type?.id) ? ' rss-menu' : ''}${type?.id === 'media' || type?.id === 'manga-shelf' ? ' media-menu' : ''}${type?.id === 'url' || type?.id === 'url-grid' ? ' url-menu' : ''}`;
+            menu.className = `board-card-menu${type?.timezoneCount ? ' clock-menu' : ''}${isRSSType(type?.id) ? ' rss-menu' : ''}${type?.id === 'media' || type?.id === 'manga-shelf' || type?.id === 'album-shelf' ? ' media-menu' : ''}${type?.id === 'url' || type?.id === 'url-grid' ? ' url-menu' : ''}`;
             menu.setAttribute('role', 'group');
             menu.setAttribute('aria-label', type?.timezoneCount
                 ? 'Clock settings'
                 : isRSSType(type?.id) ? 'RSS feed and card size settings'
                     : type?.id === 'media' ? 'Media source and card size settings'
                         : type?.id === 'manga-shelf' ? 'Manga shelf folder, alignment and card size settings'
+                        : type?.id === 'album-shelf' ? 'Album shelf file and card size settings'
                         : type?.id === 'url' ? 'URL and card size settings'
                             : type?.id === 'url-grid' ? 'URL grid settings'
                             : type?.id === 'system-usage' ? 'System usage card actions' : 'Card size');
@@ -5869,6 +6615,51 @@
                         loadMangaShelf(card);
                     });
                     setting.append(label, inputRow, status, alignLabel, alignGroup);
+                    menu.appendChild(setting);
+                    const divider = document.createElement('div');
+                    divider.className = 'board-card-menu-divider';
+                    menu.appendChild(divider);
+                }
+
+                if (type?.id === 'album-shelf') {
+                    const setting = document.createElement('form');
+                    setting.className = 'board-media-setting';
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    const inputRow = document.createElement('div');
+                    const saveButton = document.createElement('button');
+                    const status = document.createElement('span');
+                    const inputId = `board-album-${card.id}-file`;
+                    label.htmlFor = inputId;
+                    label.textContent = 'Album list file';
+                    input.id = inputId;
+                    input.type = 'text';
+                    input.className = 'settings-input board-media-url-input';
+                    input.placeholder = 'album.txt';
+                    input.value = card.albumFile;
+                    input.setAttribute('aria-label', 'Album list file');
+                    inputRow.className = 'board-input-row';
+                    inputRow.appendChild(input);
+                    saveButton.type = 'submit';
+                    saveButton.className = 'board-card-size-option board-input-load';
+                    saveButton.textContent = 'Load';
+                    inputRow.appendChild(saveButton);
+                    status.className = 'board-url-status';
+                    status.setAttribute('role', 'status');
+                    status.textContent = card.albumMenuStatus || '';
+                    setting.addEventListener('submit', event => {
+                        event.preventDefault();
+                        const nextFile = input.value.trim() || 'album.txt';
+                        if (nextFile !== card.albumFile) {
+                            card.albumOpenIndex = null;
+                            card.albumCursor = { album: 0, sub: -1 };
+                        }
+                        card.albumFile = nextFile;
+                        saveActiveLayout();
+                        card.albumMenuStatus = '';
+                        loadAlbumShelf(card);
+                    });
+                    setting.append(label, inputRow, status);
                     menu.appendChild(setting);
                     const divider = document.createElement('div');
                     divider.className = 'board-card-menu-divider';
@@ -6090,6 +6881,11 @@
                     + lines(72, 32, [58, 38], 9, 0.5) + `<rect x="72" y="58" width="62" height="4" rx="2" fill="${f(0.15)}"/><rect x="72" y="58" width="26" height="4" rx="2" fill="${f(0.75)}"/>`),
                 'manga-shelf': svg(card(14, 18, 132, 64)
                     + [0, 1, 2, 3, 4, 5, 6].map(n => `<rect x="${26 + n * 15}" y="${32 + (n % 3) * 3}" width="11" height="${40 - (n % 3) * 3}" rx="2" fill="${f(0.16 + (n % 4) * 0.08)}"/>`).join('')),
+                'album-shelf': svg(
+                    [0, 1, 2].map(n => `<rect x="${10 + n * 11}" y="20" width="9" height="60" rx="3" fill="${f(0.16 + n * 0.07)}"/>`).join('')
+                    + `<rect x="46" y="20" width="68" height="60" rx="8" fill="${f(0.1)}" stroke="${f(0.35)}"/><rect x="52" y="26" width="38" height="38" rx="5" fill="${f(0.22)}"/><circle cx="71" cy="45" r="9" fill="none" stroke="${f(0.7)}" stroke-width="2"/>`
+                    + [0, 1, 2].map(n => `<rect x="${96 + n * 5}" y="${26}" width="3" height="${48}" rx="1.5" fill="${f(0.3)}"/>`).join('')
+                    + [0, 1, 2].map(n => `<rect x="${121 + n * 11}" y="20" width="9" height="60" rx="3" fill="${f(0.3 - n * 0.07)}"/>`).join('')),
                 'url': svg(card(52, 20, 56, 60) + `<rect x="66" y="34" width="28" height="28" rx="7" fill="${f(0.18)}"/><path d="M76 53l8-8M78 43h6v6" stroke="${f(0.85)}" stroke-width="2" fill="none" stroke-linecap="round"/>`),
                 'url-grid': svg(card(30, 10, 100, 80) + [0, 1, 2, 3].map(n => `<rect x="${41 + (n % 2) * 40}" y="${21 + Math.floor(n / 2) * 32}" width="28" height="24" rx="6" fill="${f(0.18)}"/>`).join(''))
             };
@@ -6271,7 +7067,7 @@
             if (!type.timezoneCount && !isRSSType(card.typeId) &&
                 card.typeId !== 'calendar' && card.typeId !== 'media' &&
                 card.typeId !== 'url' && card.typeId !== 'url-grid' &&
-                card.typeId !== 'manga-shelf' && card.typeId !== 'system-usage' &&
+                card.typeId !== 'manga-shelf' && card.typeId !== 'album-shelf' && card.typeId !== 'system-usage' &&
                 card.typeId !== 'now-playing') {
                 const heading = document.createElement('div');
                 heading.className = 'board-card-heading';
@@ -6295,6 +7091,8 @@
                 renderBoardMedia(card, element);
             } else if (card.typeId === 'manga-shelf') {
                 renderMangaShelf(card, element);
+            } else if (card.typeId === 'album-shelf') {
+                renderAlbumShelf(card, element);
             } else if (card.typeId === 'url') {
                 renderBoardUrl(card, element);
             } else if (card.typeId === 'url-grid') {
@@ -6447,6 +7245,7 @@
 
         function startActiveCardLoaders() {
             activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
+            activeBoardCards().filter(card => card.typeId === 'album-shelf').forEach(loadAlbumShelf);
             activeBoardCards().filter(card => isRSSType(card.typeId) && card.rssUrl).forEach(loadRSSCard);
         }
 
@@ -7938,6 +8737,7 @@
         startActiveCardLoaders();
         setInterval(() => {
             activeBoardCards().filter(card => card.typeId === 'manga-shelf' && card.shelfPath).forEach(loadMangaShelf);
+            activeBoardCards().filter(card => card.typeId === 'album-shelf').forEach(loadAlbumShelf);
         }, 1800000);
         setInterval(() => {
             activeBoardCards().filter(card => isRSSType(card.typeId) && card.rssUrl).forEach(loadRSSCard);

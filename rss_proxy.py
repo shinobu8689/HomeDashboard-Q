@@ -8,7 +8,7 @@ Also serves dashboard.html at the server root.
 Generates QR-code PNGs for RSS entry links.
 
 Run:
-    pip install fastapi uvicorn httpx "qrcode[pil]" psutil playwright --break-system-packages
+    pip install fastapi uvicorn httpx "qrcode[pil]" psutil playwright ytmusicapi --break-system-packages
     (Pillow comes with qrcode[pil]; it is also used for the picture cache)
     uvicorn rss_proxy:app --host 0.0.0.0 --port 8787
 
@@ -41,13 +41,14 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from starlette.background import BackgroundTask
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
+from album_shelf import scan_album_shelf
 #from qr import create_qr_png
-from system_usage import read_system_usage
-from manga_shelf import scan_manga_shelf
 from manga_share import TOKEN_TTL_SECONDS, build_archive, create_share, lan_host, lookup_share
+from manga_shelf import scan_manga_shelf
+from system_usage import read_system_usage
 
 app = FastAPI(title="RSS Proxy")
 DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
@@ -270,6 +271,27 @@ def manga_shelf(request: Request, path: str = Query(..., min_length=1, max_lengt
         raise HTTPException(status_code=500, detail=f"Could not read the series folder: {error}") from error
 
 
+@app.get("/album-shelf", include_in_schema=False)
+def album_shelf(request: Request, path: str = Query("album.txt", min_length=1, max_length=1024)):
+    if request.client is None:
+        raise HTTPException(status_code=403, detail="Album shelf is only available from this machine")
+
+    try:
+        if not ipaddress.ip_address(request.client.host).is_loopback:
+            raise HTTPException(status_code=403, detail="Album shelf is only available from this machine")
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Album shelf is only available from this machine")
+
+    try:
+        return scan_album_shelf(path)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except RuntimeError as error:  # for example ytmusicapi not installed
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail=f"Could not read the album list: {error}") from error
+
+
 def _client_ip(request: Request):
     if request.client is None:
         return None
@@ -348,8 +370,6 @@ def download_book(token: str, request: Request):
 
 @app.get("/rss")
 async def get_rss(url: str = Query(..., description="Feed URL to fetch")):
-    import time
-
     now = time.time()
     cached = _cache.get(url)
     if cached and now - cached[0] < CACHE_SECONDS:
